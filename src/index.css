@@ -1,0 +1,43 @@
+/* Dark Theme */
+:root {
+  --primary-color: #4f46e5;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --border-color: #334155;
+}
+
+/* Light Theme */
+html:not(.dark),
+.light-theme {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --border-color: #cbd5e1;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-slate-300;
+  }
+
+  body {
+    @apply bg-slate-900 text-white font-sans;
+  }
+}
+
+@layer utilities {
+  .rtl {
+    direction: rtl;
+  }
+}
