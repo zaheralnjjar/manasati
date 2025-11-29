@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import type { ChangeEvent } from 'react';
 import {
     Play, Square, MapPin, Clock, Navigation, History, Trash2, Share2,
-    Bookmark, Edit2, ExternalLink, X, Camera, Target
+    Bookmark, Edit2, ExternalLink, X, Camera, Target, Image as ImageIcon
 } from 'lucide-react';
 import { useMasariStore } from '../../store/useMasariStore';
+import PhotoStudio from './PhotoStudio';
 import type { LocationPoint, SavedLocation } from '../../store/useMasariStore';
 
 interface MasariDashboardProps {
@@ -32,7 +33,7 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
     const [elapsedTime, setElapsedTime] = useState(0);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [editingLocation, setEditingLocation] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'all' | 'parking' | 'place' | 'photo'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'parking' | 'place' | 'photo' | 'studio'>('all');
     const [locationForm, setLocationForm] = useState<{
         name: string;
         category: 'parking' | 'place' | 'photo';
@@ -234,20 +235,20 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
     const [viewMode, setViewMode] = useState<'locations' | 'trips'>('locations');
 
     return (
-        <div className="flex flex-col gap-1 w-full h-full">
-            {/* 1. Compact Toolbar (4 Icons) */}
-            <div className="bg-slate-800 rounded-xl p-1 border border-slate-700 grid grid-cols-4 gap-1 flex-shrink-0">
+        <div className="flex flex-col w-full h-full bg-slate-900">
+            {/* 1. Compact Toolbar (4 Icons) - Full Width, No Rounding */}
+            <div className="bg-slate-800 p-0.5 grid grid-cols-4 gap-0.5 flex-shrink-0 border-b border-slate-700">
                 {/* Track Button */}
                 <button
                     onClick={isTracking ? stopTracking : startTracking}
-                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition-all ${isTracking
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    className={`flex flex-col items-center justify-center py-2 rounded-sm transition-all ${isTracking
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-slate-700/30 text-slate-300 hover:bg-slate-700 hover:text-white'
                         }`}
                     title={isTracking ? "إيقاف التتبع" : "بدء التتبع"}
                 >
-                    {isTracking ? <Square size={18} className="mb-0.5" /> : <Play size={18} className="mb-0.5" />}
-                    <span className="text-[10px] font-medium">{isTracking ? formatTime(elapsedTime) : 'تتبع'}</span>
+                    {isTracking ? <Square size={20} className="mb-0.5" /> : <Play size={20} className="mb-0.5" />}
+                    <span className="text-[10px] font-bold">{isTracking ? formatTime(elapsedTime) : 'تتبع'}</span>
                 </button>
 
                 {/* Save Location Button */}
@@ -270,11 +271,11 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                     }}
                     onDoubleClick={(e) => { e.preventDefault(); setShowSaveModal(true); }}
                     disabled={!currentLocation}
-                    className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    className="flex flex-col items-center justify-center py-2 rounded-sm bg-slate-700/30 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
                     title="حفظ الموقع الحالي"
                 >
-                    <Bookmark size={18} className="mb-0.5" />
-                    <span className="text-[10px] font-medium">حفظ</span>
+                    <Bookmark size={20} className="mb-0.5" />
+                    <span className="text-[10px] font-bold">حفظ</span>
                 </button>
 
                 {/* Locate Me Button */}
@@ -285,29 +286,29 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                         }
                     }}
                     disabled={!currentLocation}
-                    className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    className="flex flex-col items-center justify-center py-2 rounded-sm bg-slate-700/30 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
                     title="تحديد موقعي"
                 >
-                    <Target size={18} className="mb-0.5" />
-                    <span className="text-[10px] font-medium">موقعي</span>
+                    <Target size={20} className="mb-0.5" />
+                    <span className="text-[10px] font-bold">موقعي</span>
                 </button>
 
                 {/* Toggle View Button */}
                 <button
                     onClick={() => setViewMode(viewMode === 'locations' ? 'trips' : 'locations')}
-                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition-all ${viewMode === 'trips'
-                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/50'
-                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    className={`flex flex-col items-center justify-center py-2 rounded-sm transition-all ${viewMode === 'trips'
+                        ? 'bg-primary-500/20 text-primary-400'
+                        : 'bg-slate-700/30 text-slate-300 hover:bg-slate-700 hover:text-white'
                         }`}
                     title="التبديل بين المواقع والرحلات"
                 >
-                    {viewMode === 'locations' ? <History size={18} className="mb-0.5" /> : <MapPin size={18} className="mb-0.5" />}
-                    <span className="text-[10px] font-medium">{viewMode === 'locations' ? 'السجل' : 'المواقع'}</span>
+                    {viewMode === 'locations' ? <History size={20} className="mb-0.5" /> : <MapPin size={20} className="mb-0.5" />}
+                    <span className="text-[10px] font-bold">{viewMode === 'locations' ? 'السجل' : 'المواقع'}</span>
                 </button>
             </div>
 
-            {/* 2. Unified List Area */}
-            <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col min-h-0">
+            {/* 2. Unified List Area - Full Width */}
+            <div className="flex-1 bg-slate-900 overflow-hidden flex flex-col min-h-0">
                 {/* List Header */}
                 <div className="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
                     <h3 className="font-bold text-white text-sm flex items-center gap-2">
@@ -324,6 +325,10 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                             <button onClick={() => setActiveTab('all')} className={`px-2 py-1 rounded text-xs ${activeTab === 'all' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>الكل</button>
                             <button onClick={() => setActiveTab('parking')} className={`px-2 py-1 rounded text-xs ${activeTab === 'parking' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>🚗</button>
                             <button onClick={() => setActiveTab('place')} className={`px-2 py-1 rounded text-xs ${activeTab === 'place' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>📍</button>
+                            <button onClick={() => setActiveTab('studio')} className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${activeTab === 'studio' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
+                                <ImageIcon size={12} />
+                                استوديو
+                            </button>
                         </div>
                     )}
                 </div>
@@ -331,29 +336,34 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                 {/* List Content */}
                 <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
                     {viewMode === 'locations' ? (
-                        // --- LOCATIONS LIST ---
-                        filteredLocations.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500 text-sm">لا توجد مواقع محفوظة</div>
+                        activeTab === 'studio' ? (
+                            // --- PHOTO STUDIO ---
+                            <PhotoStudio />
                         ) : (
-                            filteredLocations.map(location => (
-                                <div key={location.id} className="bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 flex justify-between items-center group">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-lg flex-shrink-0">
-                                            {location.icon === 'car' ? '🚗' : location.icon === 'home' ? '🏠' : location.icon === 'work' ? '💼' : '📍'}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="text-sm font-medium text-white truncate">{location.name}</div>
-                                            <div className="text-[10px] text-slate-500 truncate">
-                                                {new Date(location.savedAt).toLocaleString('ar-SA-u-ca-gregory', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            // --- LOCATIONS LIST ---
+                            filteredLocations.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500 text-sm">لا توجد مواقع محفوظة</div>
+                            ) : (
+                                filteredLocations.map(location => (
+                                    <div key={location.id} className="bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 flex justify-between items-center group">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-lg flex-shrink-0">
+                                                {location.icon === 'car' ? '🚗' : location.icon === 'home' ? '🏠' : location.icon === 'work' ? '💼' : '📍'}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-medium text-white truncate">{location.name}</div>
+                                                <div className="text-[10px] text-slate-500 truncate">
+                                                    {new Date(location.savedAt).toLocaleString('ar-SA-u-ca-gregory', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
                                             </div>
                                         </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => handleNavigate(location.lat, location.lng)} className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-700/50 rounded"><Navigation size={14} /></button>
+                                            <button onClick={() => deleteSavedLocation(location.id)} className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-700/50 rounded"><Trash2 size={14} /></button>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleNavigate(location.lat, location.lng)} className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-700/50 rounded"><Navigation size={14} /></button>
-                                        <button onClick={() => deleteSavedLocation(location.id)} className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-700/50 rounded"><Trash2 size={14} /></button>
-                                    </div>
-                                </div>
-                            ))
+                                ))
+                            )
                         )
                     ) : (
                         // --- TRIPS LIST ---

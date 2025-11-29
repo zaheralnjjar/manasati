@@ -181,6 +181,8 @@ export interface SavedLocation {
     icon?: 'car' | 'home' | 'work' | 'store' | 'pin';
     color?: string;
     photo?: string; // base64 encoded image
+    photoTitle?: string; // custom title for photo
+    streetAddress?: string; // reverse geocoded street address
     notes?: string;
     savedAt: number;
 }

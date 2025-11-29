@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Send, Bot, X, Mic, Globe, History as HistoryIcon, Lightbulb, Calendar, Target } from 'lucide-react';
+import { Send, Bot, X, Mic, Globe, History as HistoryIcon, Lightbulb, Calendar, Target, Hand } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 import { useFinanceStore } from '../../store/useFinanceStore';
@@ -266,9 +266,9 @@ export default function VoiceAssistant() {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setVoiceActive(true)}
-                className="fixed bottom-24 left-6 z-[9990] bg-primary-500 text-white p-4 rounded-full shadow-lg shadow-primary-500/30 flex items-center justify-center"
+                className="fixed bottom-24 right-6 z-[9990] bg-primary-500 text-white p-4 rounded-full shadow-lg shadow-primary-500/30 flex items-center justify-center"
             >
-                <Bot size={24} />
+                <Hand size={24} />
             </motion.button>
 
             {/* Modal Interface */}

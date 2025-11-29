@@ -50,11 +50,16 @@ export const calculatePrayerTimes = (
 };
 
 const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    });
+    try {
+        if (!date || isNaN(date.getTime())) return '--:--';
+        return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        });
+    } catch (e) {
+        return '--:--';
+    }
 };
 
 export const getNextPrayer = (prayers: PrayerTimeResult[]): PrayerTimeResult | null => {
@@ -62,7 +67,10 @@ export const getNextPrayer = (prayers: PrayerTimeResult[]): PrayerTimeResult | n
     const currentTime = now.getHours() * 60 + now.getMinutes();
 
     for (const prayer of prayers) {
+        if (prayer.time === '--:--') continue;
         const [hours, minutes] = prayer.time.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) continue;
+
         const prayerTime = hours * 60 + minutes;
 
         if (prayerTime > currentTime) {
@@ -80,7 +88,10 @@ export const getCurrentPrayer = (prayers: PrayerTimeResult[]): PrayerTimeResult 
     let currentPrayer: PrayerTimeResult | null = null;
 
     for (const prayer of prayers) {
+        if (prayer.time === '--:--') continue;
         const [hours, minutes] = prayer.time.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) continue;
+
         const prayerTime = hours * 60 + minutes;
 
         if (prayerTime <= currentTime) {
@@ -98,8 +109,12 @@ export const getCurrentPrayer = (prayers: PrayerTimeResult[]): PrayerTimeResult 
 };
 
 export const getTimeUntilPrayer = (prayerTime: string): string => {
+    if (!prayerTime || prayerTime === '--:--') return '--';
+
     const now = new Date();
     const [hours, minutes] = prayerTime.split(':').map(Number);
+
+    if (isNaN(hours) || isNaN(minutes)) return '--';
 
     const prayer = new Date();
     prayer.setHours(hours, minutes, 0, 0);
@@ -120,8 +135,13 @@ export const getTimeUntilPrayer = (prayerTime: string): string => {
 };
 
 export const getTimeSincePrayer = (prayerTime: string): string => {
+    if (!prayerTime || prayerTime === '--:--') return '--';
+
     const now = new Date();
     const [hours, minutes] = prayerTime.split(':').map(Number);
+
+    if (isNaN(hours) || isNaN(minutes)) return '--';
+
     const prayer = new Date();
     prayer.setHours(hours, minutes, 0, 0);
 

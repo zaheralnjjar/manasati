@@ -118,7 +118,7 @@ export default function MasariMap() {
     return (
         <div className="h-full w-full rounded-xl overflow-hidden border border-slate-700 relative">
             {/* Search Bar */}
-            <div className="absolute top-4 left-4 right-4 z-[1000] flex flex-col gap-2 pointer-events-none">
+            <div className="absolute top-1 left-1 right-1 z-[1000] flex flex-col gap-1 pointer-events-none">
                 <div className="relative pointer-events-auto">
                     <input
                         type="text"

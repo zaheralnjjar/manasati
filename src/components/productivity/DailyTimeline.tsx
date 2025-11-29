@@ -64,6 +64,15 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
         });
     };
 
+    // Hijri (Islamic) calendar formatting
+    const formatHijriDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString('ar-SA-u-ca-islamic', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+        });
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-900/50 rounded-xl border border-slate-700 overflow-hidden">
             {/* Header / Date Navigation */}
@@ -77,6 +86,9 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                         <CalendarIcon size={18} className="text-primary-500" />
                         {formatDate(selectedDate)}
                     </h2>
+                    <h3 className="text-sm text-slate-300 mt-1">
+                        {formatHijriDate(selectedDate)}
+                    </h3>
                     {selectedDate === getToday() && (
                         <span className="text-xs text-primary-400 font-medium bg-primary-500/10 px-2 py-0.5 rounded-full">اليوم</span>
                     )}
@@ -166,10 +178,10 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                                 <div
                                                     key={`${item.type}-${item.id}`}
                                                     className={`p-3 rounded-xl border flex gap-3 ${item.type === 'appointment'
-                                                            ? 'bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20'
-                                                            : item.completed
-                                                                ? 'bg-slate-800/50 border-slate-700 opacity-60'
-                                                                : 'bg-slate-700/30 border-slate-600 hover:bg-slate-700/50'
+                                                        ? 'bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20'
+                                                        : item.completed
+                                                            ? 'bg-slate-800/50 border-slate-700 opacity-60'
+                                                            : 'bg-slate-700/30 border-slate-600 hover:bg-slate-700/50'
                                                         }`}
                                                 >
                                                     {/* Icon */}
