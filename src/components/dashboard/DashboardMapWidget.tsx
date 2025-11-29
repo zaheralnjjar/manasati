@@ -60,7 +60,7 @@ export default function DashboardMapWidget() {
     };
 
     return (
-        <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700/50 h-full flex flex-col relative overflow-hidden group">
+        <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700/50 h-[300px] md:h-full flex flex-col relative overflow-hidden group">
             <div className="flex justify-between items-center mb-3 z-10 relative">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <MapPin className="text-primary-400" size={18} />

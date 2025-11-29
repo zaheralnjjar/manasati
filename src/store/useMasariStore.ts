@@ -30,6 +30,7 @@ interface MasariState {
     isTracking: boolean;
     currentLocation: LocationPoint | null;
     currentTrip: Trip | null;
+    selectedTrip: Trip | null;
     tripHistory: Trip[];
     savedLocations: SavedLocation[];
     settings: {
@@ -44,6 +45,7 @@ interface MasariState {
     stopTracking: () => void;
     updateLocation: (location: LocationPoint) => void;
     saveTrip: (trip: Trip) => void;
+    selectTrip: (trip: Trip | null) => void;
     deleteTrip: (id: string) => void;
     updateSettings: (settings: Partial<MasariState['settings']>) => void;
 
@@ -72,6 +74,7 @@ export const useMasariStore = create<MasariState>()(
             isTracking: false,
             currentLocation: null,
             currentTrip: null,
+            selectedTrip: null,
             tripHistory: [],
             savedLocations: [],
             settings: {
@@ -88,7 +91,7 @@ export const useMasariStore = create<MasariState>()(
                     points: [],
                     distance: 0
                 };
-                set({ isTracking: true, currentTrip: newTrip });
+                set({ isTracking: true, currentTrip: newTrip, selectedTrip: null });
             },
 
             stopTracking: () => {
@@ -137,6 +140,10 @@ export const useMasariStore = create<MasariState>()(
                 set(state => ({
                     tripHistory: state.tripHistory.map(t => t.id === trip.id ? trip : t)
                 }));
+            },
+
+            selectTrip: (trip) => {
+                set({ selectedTrip: trip });
             },
 
             deleteTrip: (id) => {

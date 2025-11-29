@@ -8,7 +8,7 @@ import type { Task, TaskPriority, TaskSection, TaskStatus } from '../types';
 import { storage } from '../utils/storage';
 import { addTaskToSystem } from '../utils/taskHelper';
 import DevelopmentSection from '../components/tasks/DevelopmentSection';
-import TimelineSection from '../components/tasks/TimelineSection';
+import DailyTimeline from '../components/productivity/DailyTimeline';
 import { Pie, Bar } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -377,9 +377,7 @@ END:VCALENDAR`;
                     </div>
                 </div>
             ) : viewMode === 'timeline' ? (
-                <TimelineSection
-                    tasks={tasks}
-                    onToggleStatus={toggleTaskStatus}
+                <DailyTimeline
                     onAddTaskWithTime={handleAddTaskWithTime}
                 />
             ) : (

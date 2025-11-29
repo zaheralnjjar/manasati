@@ -31,7 +31,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const { savedLocations } = useMasariStore();
 
     // Synchronized Prayer Times
-    const { nextPrayer, currentPrayer, timeRemaining, prayers } = usePrayerSync();
+    const { nextPrayer, currentPrayer, timeRemaining, timeSince, prayers } = usePrayerSync();
 
     // Initialize stores on mount
     useEffect(() => {
@@ -107,10 +107,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
+                        <h1 className="text-xl md:text-3xl font-bold text-white mb-1">
                             {greeting}, {user?.name || 'مرحباً بك'} 👋
                         </h1>
-                        <p className="text-slate-400 text-sm md:text-base">
+                        <p className="text-slate-400 text-xs md:text-base">
                             {new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
                     </div>
@@ -147,11 +147,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                                 {new Date().toLocaleDateString('ar-SA', { weekday: 'long', day: 'numeric', month: 'long' })}
                                             </p>
                                         </div>
-                                        <div className="flex gap-4 w-full md:w-auto justify-center">
+                                        <div className="flex gap-2 md:gap-4 w-full md:w-auto justify-center">
+                                            {currentPrayer && (
+                                                <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-3 text-center min-w-[120px] w-1/2 md:w-auto">
+                                                    <p className="text-xs text-emerald-300 mb-1">مضى على {currentPrayer.arabicName}</p>
+                                                    <p className="text-lg md:text-xl font-mono font-bold text-white" dir="ltr">+{timeSince}</p>
+                                                </div>
+                                            )}
                                             {nextPrayer && (
-                                                <div className="bg-primary-900/30 border border-primary-500/30 rounded-2xl p-3 text-center min-w-[120px] w-full md:w-auto">
+                                                <div className="bg-primary-900/30 border border-primary-500/30 rounded-2xl p-3 text-center min-w-[120px] w-1/2 md:w-auto">
                                                     <p className="text-xs text-primary-300 mb-1">متبقي لـ {nextPrayer.arabicName}</p>
-                                                    <p className="text-xl font-mono font-bold text-white" dir="ltr">-{timeRemaining}</p>
+                                                    <p className="text-lg md:text-xl font-mono font-bold text-white" dir="ltr">-{timeRemaining}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -247,7 +253,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         {/* Masari Card */}
                         <button
                             onClick={() => onNavigate('masari')}
-                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[160px]"
+                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[130px] md:min-h-[160px]"
                         >
                             <div className="w-full">
                                 <div className="flex justify-between items-start mb-3">
@@ -272,7 +278,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         {/* Finance Card */}
                         <button
                             onClick={() => onNavigate('budget')}
-                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[160px]"
+                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[130px] md:min-h-[160px]"
                         >
                             <div className="w-full">
                                 <div className="flex justify-between items-start mb-3">
@@ -307,7 +313,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         {/* Tasks Card */}
                         <button
                             onClick={() => onNavigate('tasks')}
-                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[160px]"
+                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[130px] md:min-h-[160px]"
                         >
                             <div className="w-full">
                                 <div className="flex justify-between items-start mb-3">
@@ -332,7 +338,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         {/* Shopping Card */}
                         <button
                             onClick={() => onNavigate('shopping')}
-                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[160px]"
+                            className="bg-slate-800 p-3 md:p-4 rounded-2xl border border-slate-700 hover:border-slate-600 transition-all text-right group hover:bg-slate-750 flex flex-col justify-between min-h-[130px] md:min-h-[160px]"
                         >
                             <div className="w-full">
                                 <div className="flex justify-between items-start mb-3">

@@ -15,32 +15,28 @@ const getModel = (modelName: string) => {
     return genAI.getGenerativeModel({ model: modelName });
 };
 
-export const aiHelper = {
-    /**
-     * Generates text using Gemini API with fallback models
-     */
-    generateText: async (prompt: string): Promise<string> => {
-        let lastError;
+// Helper function to generate text
+const generateText = async (prompt: string): Promise<string> => {
+    let lastError;
 
-        for (const modelName of MODELS) {
-            try {
-                console.log(`Trying AI model: ${modelName}`);
-                const model = getModel(modelName);
-                const result = await model.generateContent(prompt);
-                const response = await result.response;
-                return response.text();
-            } catch (error: any) {
-                console.warn(`Model ${modelName} failed:`, error.message);
-                lastError = error;
-                // If it's a 404 or 403, continue to next model. 
-                // If it's a network error, it might fail for all, but we retry anyway.
-            }
+    for (const modelName of MODELS) {
+        try {
+            console.log(`Trying AI model: ${modelName}`);
+            const model = getModel(modelName);
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            return response.text();
+        } catch (error: any) {
+            console.warn(`Model ${modelName} failed:`, error.message);
+            lastError = error;
         }
+    }
 
-        throw lastError || new Error("All AI models failed");
-    },
+    throw lastError || new Error("All AI models failed");
+};
 
-
+export const aiHelper = {
+    generateText,
 
     /**
      * Suggests recipes based on ingredients
@@ -66,7 +62,7 @@ export const aiHelper = {
         `;
 
         try {
-            const text = await aiHelper.generateText(prompt);
+            const text = await generateText(prompt);
             console.log("AI Recipe Response:", text);
 
             // Robust JSON extraction
@@ -77,7 +73,6 @@ export const aiHelper = {
             return JSON.parse(jsonStr);
         } catch (error) {
             console.error("Error suggesting recipes:", error);
-            // Return empty array to let UI handle "no results" or show error
             throw error;
         }
     },
@@ -85,28 +80,18 @@ export const aiHelper = {
     /**
      * Asks a religious question based on specific scholars
      */
-    askScholar: async (question: string): Promise<string> => {
+    askScholar: async (question: string, scholar: string): Promise<string> => {
         const prompt = `
-        You are a helpful Islamic assistant named Zaher. You follow the Quran and Sunnah according to the understanding of the righteous predecessors (Salaf).
+        You are a knowledgeable assistant in Islamic jurisprudence.
+        Please answer the following question: "${question}"
+        According to the views of scholar: ${scholar}
         
-        User Question: "${question}"
-
-        INSTRUCTIONS:
-        1. Answer in Arabic.
-        2. Base your answer on the fatwas and opinions of the following major Sunni scholars:
-           - Sheikh Abdul Aziz Bin Baz
-           - Sheikh Muhammad Bin Uthaymeen
-           - Sheikh Muhammad Nasiruddin Al-Albani
-           - Sheikh Uthman Al-Khamis
-           - Sheikh Waleed Al-Saeedan
-        3. If there is a consensus, state it clearly.
-        4. If there is a difference of opinion, mention the view supported by these scholars with evidence if possible.
-        5. Be polite, concise, and direct.
-        6. If the question is not religious or you don't know the answer based on these sources, say "لا أملك إجابة دقيقة لهذا السؤال من المصادر المعتمدة لدي." (I don't have a precise answer from my trusted sources).
+        If the scholar's specific view is not known, provide the general consensus (Jumhur) and mention that.
+        Answer in Arabic, clearly and respectfully.
         `;
 
         try {
-            return await aiHelper.generateText(prompt);
+            return await generateText(prompt);
         } catch (error) {
             console.error("Error asking scholar:", error);
             return "عذراً، حدث خطأ أثناء البحث عن الإجابة. يرجى المحاولة مرة أخرى أو التأكد من الاتصال بالإنترنت.";

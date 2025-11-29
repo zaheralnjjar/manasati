@@ -7,7 +7,7 @@ import type { VoiceIntent, IntentType } from '../types';
 export const processVoiceCommand = (transcript: string): VoiceIntent => {
     // Normalize text
     const lowerTranscript = transcript.toLowerCase();
-    const cleanTranscript = lowerTranscript; // Keep original for extraction
+    let cleanTranscript = transcript; // Start with original, will remove extracted parts
 
     // --- Keywords (Arabic & Spanish) ---
 
@@ -52,41 +52,68 @@ export const processVoiceCommand = (transcript: string): VoiceIntent => {
 
     // --- Extraction Logic ---
 
-    // Extract time (Arabic & Spanish)
-    // Arabic: الساعة 5, 5:30, الخامسة
-    // Spanish: a las 5, 5:30
-    const timeMatch = cleanTranscript.match(/(\d{1,2}:\d{2})|(\d{1,2})\s*(صباحا|مساء|ص|م|am|pm)?|الساعة\s*(\d{1,2})|a las\s*(\d{1,2})/);
+    // 1. Extract Time
+    // Matches: "at 5:30", "الساعة 5", "5 pm", "a las 5"
+    const timeRegex = /(?:الساعة|في|at|a las)?\s*(\d{1,2}:\d{2})|(?:الساعة|في|at|a las)?\s*(\d{1,2})\s*(صباحا|مساء|ص|م|am|pm)?/i;
+    const timeMatch = cleanTranscript.match(timeRegex);
     let time = undefined;
+
     if (timeMatch) {
-        if (timeMatch[1]) time = timeMatch[1]; // 5:30
-        else if (timeMatch[3] || timeMatch[4]) { // الساعة 5 or 5 صباحا
-            const hour = parseInt(timeMatch[2] || timeMatch[4]);
-            const period = timeMatch[3];
-            if (period && (period.includes('م') || period.includes('pm') || period.includes('مساء')) && hour < 12) {
-                time = `${hour + 12}:00`;
-            } else if (period && (period.includes('ص') || period.includes('am') || period.includes('صباحا')) && hour === 12) {
-                time = `00:00`;
-            } else {
-                time = `${hour.toString().padStart(2, '0')}:00`;
+        const fullMatch = timeMatch[0];
+        // Check if it's a valid time format or just a number
+        // We want to avoid matching just "5" in "5 apples" unless it has a time indicator
+        const hasIndicator = fullMatch.match(/الساعة|في|at|a las|صباحا|مساء|ص|م|am|pm|:/);
+
+        if (hasIndicator) {
+            if (timeMatch[1]) { // 5:30
+                time = timeMatch[1];
+            } else if (timeMatch[2]) { // 5
+                const hour = parseInt(timeMatch[2]);
+                const period = timeMatch[3];
+
+                if (period && (period.includes('م') || period.includes('pm') || period.includes('مساء')) && hour < 12) {
+                    time = `${hour + 12}:00`;
+                } else if (period && (period.includes('ص') || period.includes('am') || period.includes('صباحا')) && hour === 12) {
+                    time = `00:00`;
+                } else {
+                    time = `${hour.toString().padStart(2, '0')}:00`;
+                }
             }
-        } else if (timeMatch[5]) { // a las 5 (Spanish)
-            const hour = parseInt(timeMatch[5]);
-            time = `${hour.toString().padStart(2, '0')}:00`;
+
+            // Remove from transcript
+            cleanTranscript = cleanTranscript.replace(fullMatch, '').trim();
         }
     }
 
-    // Extract date (Arabic & Spanish)
-    const date = extractDate(cleanTranscript); // Helper needs update or check
+    // 2. Extract Date
+    const dateResult = extractDate(cleanTranscript);
+    const date = dateResult.date;
+    if (dateResult.match) {
+        cleanTranscript = cleanTranscript.replace(dateResult.match, '').trim();
+    }
 
-    // Extract section if present
-    const section = extractSection(cleanTranscript);
-
-    // Extract amount (Arabic & Spanish)
-    // Supports: 500, 2,700,000, 5k
-    const amountMatch = cleanTranscript.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(ريال|دولار|جنيه|بيسو|peso|dollar|rs)?/);
+    // 3. Extract Amount
+    // Matches: "500 riyals", "500", "5k"
+    const amountRegex = /(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(ريال|دولار|جنيه|بيسو|peso|dollar|rs)?/i;
+    const amountMatch = cleanTranscript.match(amountRegex);
     let amount = undefined;
+
     if (amountMatch) {
-        amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+        // Only extract if there's a currency or if we suspect it's an expense/income command
+        // For now, let's extract if it looks like a number and we later determine it's finance
+        const val = parseFloat(amountMatch[1].replace(/,/g, ''));
+        // If followed by currency, definitely amount
+        if (amountMatch[2]) {
+            amount = val;
+            cleanTranscript = cleanTranscript.replace(amountMatch[0], '').trim();
+        } else {
+            // Store potential amount but don't remove yet unless we confirm intent
+            // actually, let's keep it simple: if we find a number and it's not part of time, it's likely amount or quantity
+            // But "5 apples" -> 5 is quantity. "500" -> amount.
+            // Let's rely on intent later.
+            amount = val;
+            // Don't remove raw numbers yet to avoid breaking "5 apples"
+        }
     }
 
     // Determine action (add or delete)
@@ -116,19 +143,26 @@ export const processVoiceCommand = (transcript: string): VoiceIntent => {
     } else {
         // Implicit Intent Detection
         if (time || date) {
-            // If time/date is present but no specific keyword, assume Appointment or Task
-            // "Tomorrow at 5" -> Appointment/Task
-            type = 'task'; // Default to task, but maybe appointment if it sounds like one?
-            // Let's stick to task for safety, user can say "Appointment" to be specific.
-            // Or if it has "with" (مع / con) -> Appointment
+            type = 'task';
             if (lowerTranscript.includes(' مع ') || lowerTranscript.includes(' con ')) {
                 type = 'appointment';
             }
         } else if (amount) {
-            // If amount is present, assume Expense (unless it's income keyword)
             type = 'expense';
         }
     }
+
+    // Post-processing: If finance intent, remove the raw number if we found one
+    if ((type === 'expense' || type === 'income') && amount && !cleanTranscript.match(/(ريال|دولار)/)) {
+        // If we found an amount but didn't remove it because it lacked currency, remove it now
+        const rawAmountMatch = cleanTranscript.match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/);
+        if (rawAmountMatch && parseFloat(rawAmountMatch[1]) === amount) {
+            cleanTranscript = cleanTranscript.replace(rawAmountMatch[0], '').trim();
+        }
+    }
+
+    // Extract section if present
+    const section = extractSection(cleanTranscript);
 
     // Extract category for expenses
     let category: string | undefined;
@@ -136,10 +170,23 @@ export const processVoiceCommand = (transcript: string): VoiceIntent => {
         category = extractExpenseCategory(lowerTranscript);
     }
 
+    // Clean up title
+    // Remove keywords to leave just the subject
+    // Remove "date" related words if date was extracted
+    if (date) {
+        cleanTranscript = cleanTranscript.replace(/(بتاريخ|في تاريخ|يوم)/g, '').trim();
+    }
+
+    // Simple cleanup: Remove common prepositions at start if they remain
+    cleanTranscript = cleanTranscript.replace(/^(مع|with|con|لـ|for|para|في|in|en|عن|about|حول)\s+/i, '');
+
+    // Remove specific "date" leftovers like "ال" if "يوم الاحد" was removed but "ال" remained (unlikely if regex is good, but safe to clean)
+    cleanTranscript = cleanTranscript.replace(/\s+(ال|the)\s*$/i, '');
+
     return {
         type,
         action,
-        content: cleanTranscript,
+        content: cleanTranscript.trim(),
         date,
         time,
         amount,
@@ -163,7 +210,7 @@ const extractSection = (transcript: string): string | undefined => {
 };
 
 // Extract date from transcript
-const extractDate = (transcript: string): string | undefined => {
+const extractDate = (transcript: string): { date: string | undefined, match: string | undefined } => {
     const today = new Date();
     const lowerTranscript = transcript.toLowerCase();
 
@@ -171,13 +218,15 @@ const extractDate = (transcript: string): string | undefined => {
     if (lowerTranscript.includes('غدا') || lowerTranscript.includes('بكرة') || lowerTranscript.includes('بكرا')) {
         const tomorrow = new Date(today);
         tomorrow.setDate(today.getDate() + 1);
-        return tomorrow.toISOString().split('T')[0];
+        const match = lowerTranscript.match(/(غدا|بكرة|بكرا)/)?.[0];
+        return { date: tomorrow.toISOString().split('T')[0], match };
     }
 
     if (lowerTranscript.includes('بعد غد') || lowerTranscript.includes('بعد بكرة')) {
         const afterTomorrow = new Date(today);
         afterTomorrow.setDate(today.getDate() + 2);
-        return afterTomorrow.toISOString().split('T')[0];
+        const match = lowerTranscript.match(/(بعد غد|بعد بكرة)/)?.[0];
+        return { date: afterTomorrow.toISOString().split('T')[0], match };
     }
 
     // 2. Days of the week
@@ -192,7 +241,8 @@ const extractDate = (transcript: string): string | undefined => {
     ];
 
     for (const day of days) {
-        if (day.names.some(name => lowerTranscript.includes(name))) {
+        const foundName = day.names.find(name => lowerTranscript.includes(name));
+        if (foundName) {
             const targetDay = day.offset;
             const currentDay = today.getDay();
             let daysToAdd = targetDay - currentDay;
@@ -203,11 +253,17 @@ const extractDate = (transcript: string): string | undefined => {
 
             const targetDate = new Date(today);
             targetDate.setDate(today.getDate() + daysToAdd);
-            return targetDate.toISOString().split('T')[0];
+
+            // Try to match "Next Sunday" or just "Sunday"
+            // Arabic: "يوم الأحد", "الأحد القادم"
+            const matchRegex = new RegExp(`(يوم\\s*)?${foundName}(\\s*القادم)?`);
+            const match = lowerTranscript.match(matchRegex)?.[0] || foundName;
+
+            return { date: targetDate.toISOString().split('T')[0], match };
         }
     }
 
-    return undefined;
+    return { date: undefined, match: undefined };
 };
 
 

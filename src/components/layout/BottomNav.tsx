@@ -1,4 +1,4 @@
-import { Home, BookOpen, CheckSquare, ShoppingCart, DollarSign, Settings } from 'lucide-react';
+import { Home, BookOpen, CheckSquare, ShoppingCart, DollarSign, Settings, MapPin } from 'lucide-react';
 import { useAppStore, type PageType } from '../../store/useAppStore';
 
 const navItems = [
@@ -6,7 +6,8 @@ const navItems = [
     { id: 'worship' as PageType, icon: BookOpen, label: 'عبادتي' },
     { id: 'tasks' as PageType, icon: CheckSquare, label: 'إنتاجية' },
     { id: 'shopping' as PageType, icon: ShoppingCart, label: 'تسوق' },
-    { id: 'masari' as PageType, icon: DollarSign, label: 'مالية' },
+    { id: 'masari' as PageType, icon: MapPin, label: 'مساري' },
+    { id: 'budget' as PageType, icon: DollarSign, label: 'مالية' },
     { id: 'settings' as PageType, icon: Settings, label: 'إعدادات' },
 ];
 
@@ -14,9 +15,9 @@ export default function BottomNav() {
     const { currentPage, setCurrentPage } = useAppStore();
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-slate-800/95 backdrop-blur-sm border-t border-slate-700 z-50">
+        <nav className="fixed bottom-0 left-0 right-0 bg-slate-800/95 backdrop-blur-sm border-t border-slate-700 z-[9999]">
             <div className="max-w-screen-xl mx-auto px-2">
-                <div className="grid grid-cols-6 gap-1">
+                <div className="grid grid-cols-7 gap-1">
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentPage === item.id;

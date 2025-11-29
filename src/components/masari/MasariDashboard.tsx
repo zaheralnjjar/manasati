@@ -109,7 +109,7 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
 
     const formatDate = (timestamp: number) => {
         const date = new Date(timestamp);
-        return date.toLocaleString('ar-SA', {
+        return date.toLocaleString('ar-SA-u-ca-gregory', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
@@ -230,300 +230,166 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
     const placeCount = savedLocations.filter(loc => loc.category === 'place').length;
     const photoCount = savedLocations.filter(loc => loc.category === 'photo').length;
 
+    // Unified view state
+    const [viewMode, setViewMode] = useState<'locations' | 'trips'>('locations');
+
     return (
-        <div className="h-full flex flex-col gap-4 p-4 pb-24">
-            {/* Controls */}
-            {(section === 'all' || section === 'controls') && (
-                <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 space-y-4">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={isTracking ? stopTracking : startTracking}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-colors ${isTracking
-                                ? 'bg-red-500 hover:bg-red-600 text-white'
-                                : 'bg-primary-500 hover:bg-primary-600 text-white'
-                                }`}
-                        >
-                            {isTracking ? (
-                                <>
-                                    <Square size={20} fill="white" />
-                                    إيقاف التتبع
-                                </>
-                            ) : (
-                                <>
-                                    <Play size={20} fill="white" />
-                                    بدء التتبع
-                                </>
-                            )}
-                        </button>
+        <div className="flex flex-col gap-2 w-full h-full">
+            {/* 1. Compact Toolbar (4 Icons) */}
+            <div className="bg-slate-800 rounded-xl p-2 border border-slate-700 grid grid-cols-4 gap-2">
+                {/* Track Button */}
+                <button
+                    onClick={isTracking ? stopTracking : startTracking}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${isTracking
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/50'
+                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+                        }`}
+                    title={isTracking ? "إيقاف التتبع" : "بدء التتبع"}
+                >
+                    {isTracking ? <Square size={20} className="mb-1" /> : <Play size={20} className="mb-1" />}
+                    <span className="text-[10px] font-medium">{isTracking ? formatTime(elapsedTime) : 'تتبع'}</span>
+                </button>
 
-                        <button
-                            onClick={async () => {
-                                if (!currentLocation) return;
+                {/* Save Location Button */}
+                <button
+                    onClick={async () => {
+                        if (!currentLocation) return;
+                        let locationName = 'موقع محفوظ';
+                        try {
+                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.lat}&lon=${currentLocation.lng}&accept-language=ar`);
+                            const data = await response.json();
+                            if (data.address) {
+                                const { road, suburb, neighbourhood, city } = data.address;
+                                locationName = road || suburb || neighbourhood || city || locationName;
+                            }
+                        } catch (e) { console.error(e); }
 
-                                let locationName = 'موقع محفوظ';
-                                try {
-                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.lat}&lon=${currentLocation.lng}&accept-language=ar`);
-                                    const data = await response.json();
-                                    if (data.address) {
-                                        const { road, house_number, suburb, neighbourhood, city, town } = data.address;
-                                        const parts = [];
-                                        if (road) parts.push(road);
-                                        if (house_number) parts.push(house_number);
-                                        if (!road && (suburb || neighbourhood)) parts.push(suburb || neighbourhood);
-                                        if (parts.length === 0 && (city || town)) parts.push(city || town);
+                        const { saveLocationFromCoords } = useMasariStore.getState();
+                        saveLocationFromCoords(currentLocation.lat, currentLocation.lng, locationName, 'place');
+                        alert(`✅ تم حفظ الموقع: ${locationName}`);
+                    }}
+                    onDoubleClick={(e) => { e.preventDefault(); setShowSaveModal(true); }}
+                    disabled={!currentLocation}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    title="حفظ الموقع الحالي"
+                >
+                    <Bookmark size={20} className="mb-1" />
+                    <span className="text-[10px] font-medium">حفظ</span>
+                </button>
 
-                                        if (parts.length > 0) locationName = parts.join(', ');
-                                    }
-                                } catch (error) {
-                                    console.error('Error fetching address:', error);
-                                }
+                {/* Locate Me Button */}
+                <button
+                    onClick={() => {
+                        if (currentLocation) {
+                            window.dispatchEvent(new CustomEvent('centerMapOnCurrentLocation'));
+                        }
+                    }}
+                    disabled={!currentLocation}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    title="تحديد موقعي"
+                >
+                    <Target size={20} className="mb-1" />
+                    <span className="text-[10px] font-medium">موقعي</span>
+                </button>
 
-                                // Quick save with auto-generated name
-                                const { saveLocationFromCoords } = useMasariStore.getState();
-                                saveLocationFromCoords(
-                                    currentLocation.lat,
-                                    currentLocation.lng,
-                                    locationName,
-                                    'place'
-                                );
-                                alert(`✅ تم حفظ الموقع: ${locationName}`);
-                            }}
-                            onDoubleClick={(e) => {
-                                e.preventDefault();
-                                setShowSaveModal(true);
-                            }}
-                            disabled={!currentLocation}
-                            className="px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
-                            title="ضغطة واحدة: حفظ سريع | ضغطتين: خيارات متقدمة"
-                        >
-                            <Bookmark size={20} />
-                            حفظ
-                        </button>
+                {/* Toggle View Button */}
+                <button
+                    onClick={() => setViewMode(viewMode === 'locations' ? 'trips' : 'locations')}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${viewMode === 'trips'
+                            ? 'bg-primary-500/20 text-primary-400 border border-primary-500/50'
+                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+                        }`}
+                    title="التبديل بين المواقع والرحلات"
+                >
+                    {viewMode === 'locations' ? <History size={20} className="mb-1" /> : <MapPin size={20} className="mb-1" />}
+                    <span className="text-[10px] font-medium">{viewMode === 'locations' ? 'السجل' : 'المواقع'}</span>
+                </button>
+            </div>
 
-                        <button
-                            onClick={() => {
-                                if (currentLocation) {
-                                    // Center map on current location (will be handled by MasariMap)
-                                    window.dispatchEvent(new CustomEvent('centerMapOnCurrentLocation'));
-                                }
-                            }}
-                            disabled={!currentLocation}
-                            className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-semibold transition-colors"
-                            title="تحديد موقعي"
-                        >
-                            <Target size={20} />
-                        </button>
-                    </div>
+            {/* 2. Unified List Area */}
+            <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col min-h-0">
+                {/* List Header */}
+                <div className="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+                    <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                        {viewMode === 'locations' ? (
+                            <><Bookmark size={16} className="text-primary-500" /> المواقع المحفوظة ({savedLocations.length})</>
+                        ) : (
+                            <><History size={16} className="text-emerald-500" /> سجل الرحلات ({tripHistory.length})</>
+                        )}
+                    </h3>
 
-                    {/* Stats */}
-                    {isTracking && (
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-slate-700/50 p-3 rounded-lg text-center">
-                                <Clock className="mx-auto mb-1 text-blue-400" size={20} />
-                                <div className="text-xs text-slate-400">الوقت</div>
-                                <div className="text-white font-bold">{formatTime(elapsedTime)}</div>
-                            </div>
-                            <div className="bg-slate-700/50 p-3 rounded-lg text-center">
-                                <Navigation className="mx-auto mb-1 text-green-400" size={20} />
-                                <div className="text-xs text-slate-400">المسافة</div>
-                                <div className="text-white font-bold">
-                                    {currentTrip?.distance.toFixed(2) || '0.00'} كم
-                                </div>
-                            </div>
-                            <div className="bg-slate-700/50 p-3 rounded-lg text-center">
-                                <MapPin className="mx-auto mb-1 text-red-400" size={20} />
-                                <div className="text-xs text-slate-400">النقاط</div>
-                                <div className="text-white font-bold">{currentTrip?.points.length || 0}</div>
-                            </div>
+                    {/* Filter Tabs (Only for Locations) */}
+                    {viewMode === 'locations' && (
+                        <div className="flex gap-1">
+                            <button onClick={() => setActiveTab('all')} className={`px-2 py-1 rounded text-xs ${activeTab === 'all' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>الكل</button>
+                            <button onClick={() => setActiveTab('parking')} className={`px-2 py-1 rounded text-xs ${activeTab === 'parking' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>🚗</button>
+                            <button onClick={() => setActiveTab('place')} className={`px-2 py-1 rounded text-xs ${activeTab === 'place' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>📍</button>
                         </div>
                     )}
                 </div>
-            )
-            }
 
-            {/* Saved Locations */}
-            {
-                (section === 'all' || section === 'locations') && savedLocations.length > 0 && (
-                    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex-shrink-0">
-                        <div className="p-4 border-b border-slate-700">
-                            <h3 className="font-bold text-white flex items-center gap-2 mb-4">
-                                <Bookmark className="text-primary-500" />
-                                المواقع المحفوظة
-                            </h3>
-
-                            {/* Category Tabs */}
-                            <div className="flex gap-2 overflow-x-auto pb-2">
-                                <button
-                                    onClick={() => setActiveTab('all')}
-                                    className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${activeTab === 'all'
-                                        ? 'bg-primary-500 text-white'
-                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                        }`}
-                                >
-                                    الكل ({savedLocations.length})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('parking')}
-                                    className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${activeTab === 'parking'
-                                        ? 'bg-emerald-600 text-white'
-                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                        }`}
-                                >
-                                    🚗 مواقف ({parkingCount})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('place')}
-                                    className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${activeTab === 'place'
-                                        ? 'bg-emerald-600 text-white'
-                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                        }`}
-                                >
-                                    📍 مواقع ({placeCount})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('photo')}
-                                    className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${activeTab === 'photo'
-                                        ? 'bg-emerald-600 text-white'
-                                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                        }`}
-                                >
-                                    📷 صور ({photoCount})
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="max-h-[300px] overflow-y-auto p-2 space-y-2">
-                            {filteredLocations.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500">
-                                    لا توجد مواقع محفوظة في هذه الفئة
-                                </div>
-                            ) : (
-                                filteredLocations.map(location => (
-                                    <div
-                                        key={location.id}
-                                        className="bg-slate-700/30 p-3 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50"
-                                    >
-                                        {/* Photo preview if exists */}
-                                        {location.photo && (
-                                            <img
-                                                src={location.photo}
-                                                alt={location.name}
-                                                className="w-full h-32 object-cover rounded-lg mb-3"
-                                            />
-                                        )}
-
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex-1">
-                                                <div className="text-sm font-medium text-white flex items-center gap-2">
-                                                    <span className="text-xl">
-                                                        {location.icon === 'car' ? '🚗' :
-                                                            location.icon === 'home' ? '🏠' :
-                                                                location.icon === 'work' ? '💼' :
-                                                                    location.icon === 'store' ? '🏪' : '📍'}
-                                                    </span>
-                                                    {location.name}
-                                                </div>
-                                                {location.notes && (
-                                                    <div className="text-xs text-slate-400 mt-1">{location.notes}</div>
-                                                )}
-                                                <div className="text-xs text-slate-500 mt-1">
-                                                    {new Date(location.savedAt).toLocaleString('ar-SA', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-1">
-                                                <button
-                                                    onClick={() => handleShareLocation(location)}
-                                                    className="p-1.5 text-slate-400 hover:text-green-400 hover:bg-slate-600 rounded"
-                                                    title="مشاركة"
-                                                >
-                                                    <Share2 size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleNavigate(location.lat, location.lng)}
-                                                    className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-600 rounded"
-                                                    title="التنقل"
-                                                >
-                                                    <ExternalLink size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleEditLocation(location.id)}
-                                                    className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-600 rounded"
-                                                    title="تعديل"
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => deleteSavedLocation(location.id)}
-                                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-600 rounded"
-                                                    title="حذف"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
+                {/* List Content */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
+                    {viewMode === 'locations' ? (
+                        // --- LOCATIONS LIST ---
+                        filteredLocations.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500 text-sm">لا توجد مواقع محفوظة</div>
+                        ) : (
+                            filteredLocations.map(location => (
+                                <div key={location.id} className="bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 flex justify-between items-center group">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-lg flex-shrink-0">
+                                            {location.icon === 'car' ? '🚗' : location.icon === 'home' ? '🏠' : location.icon === 'work' ? '💼' : '📍'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-medium text-white truncate">{location.name}</div>
+                                            <div className="text-[10px] text-slate-500 truncate">
+                                                {new Date(location.savedAt).toLocaleString('ar-SA-u-ca-gregory', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                             </div>
                                         </div>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* History */}
-            {
-                (section === 'all' || section === 'trips') && (
-                    <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-slate-700 flex items-center gap-2">
-                            <History className="text-emerald-400" />
-                            <h3 className="font-bold text-white">سجل الرحلات</h3>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                            {tripHistory.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500">
-                                    لا توجد رحلات مسجلة بعد
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleNavigate(location.lat, location.lng)} className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-700/50 rounded"><Navigation size={14} /></button>
+                                        <button onClick={() => deleteSavedLocation(location.id)} className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-700/50 rounded"><Trash2 size={14} /></button>
+                                    </div>
                                 </div>
-                            ) : (
-                                tripHistory.map(trip => (
-                                    <div key={trip.id} className="bg-slate-700/30 p-3 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="text-sm font-medium text-white">
-                                                {formatDate(trip.startTime)}
-                                            </div>
-                                            <div className="flex gap-1">
-                                                <button className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-600 rounded">
-                                                    <Share2 size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => deleteTrip(trip.id)}
-                                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-600 rounded"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
+                            ))
+                        )
+                    ) : (
+                        // --- TRIPS LIST ---
+                        tripHistory.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500 text-sm">لا توجد رحلات مسجلة</div>
+                        ) : (
+                            tripHistory.map(trip => (
+                                <button
+                                    key={trip.id}
+                                    onClick={() => useMasariStore.getState().selectTrip(trip)}
+                                    className="w-full text-right bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 group focus:ring-1 focus:ring-primary-500"
+                                >
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="text-sm font-medium text-white flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                            رحلة {formatDate(trip.startTime)}
                                         </div>
-                                        <div className="flex gap-4 text-xs text-slate-300">
-                                            <span className="flex items-center gap-1">
-                                                <Navigation size={12} className="text-blue-400" />
-                                                {trip.distance.toFixed(2)} كم
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <Clock size={12} className="text-orange-400" />
-                                                {trip.endTime ? formatTime(Math.floor((trip.endTime - trip.startTime) / 1000)) : '--:--'}
-                                            </span>
+                                        <div className="text-[10px] text-slate-500">
+                                            {trip.endTime ? formatTime(Math.floor((trip.endTime - trip.startTime) / 1000)) : '--:--'}
                                         </div>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )
-            }
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex gap-3 text-xs text-slate-400">
+                                            <span className="flex items-center gap-1"><Navigation size={10} /> {trip.distance.toFixed(2)} كم</span>
+                                            <span className="flex items-center gap-1"><MapPin size={10} /> {trip.points.length} نقطة</span>
+                                        </div>
+                                        <div onClick={(e) => { e.stopPropagation(); deleteTrip(trip.id); }} className="p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                            <Trash2 size={14} />
+                                        </div>
+                                    </div>
+                                </button>
+                            ))
+                        )
+                    )}
+                </div>
+            </div>
 
             {/* Save Location Modal - Floating Window */}
             {

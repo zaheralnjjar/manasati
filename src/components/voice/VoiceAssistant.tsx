@@ -3,6 +3,9 @@ import { Send, Bot, X, Mic, Globe, History as HistoryIcon, Lightbulb, Calendar, 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 import { useFinanceStore } from '../../store/useFinanceStore';
+import { useProductivityStore } from '../../store/useProductivityStore';
+import { useLifestyleStore } from '../../store/useLifestyleStore';
+import { usePrayerSync } from '../../hooks/usePrayerSync'; // Import hook, but we'll use .getState() trick or need to refactor to use hook inside componentionSupported, getSpeechRecognition } from '../../utils/voiceProcessor';
 import { processVoiceCommand, isSpeechRecognitionSupported, getSpeechRecognition } from '../../utils/voiceProcessor';
 import { getToday } from '../../utils/dateHelpers';
 import { addTaskToSystem, deleteTaskFromSystem } from '../../utils/taskHelper';
