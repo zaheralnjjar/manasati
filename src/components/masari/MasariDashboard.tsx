@@ -234,19 +234,19 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
     const [viewMode, setViewMode] = useState<'locations' | 'trips'>('locations');
 
     return (
-        <div className="flex flex-col gap-2 w-full h-full">
+        <div className="flex flex-col gap-1 w-full h-full">
             {/* 1. Compact Toolbar (4 Icons) */}
-            <div className="bg-slate-800 rounded-xl p-2 border border-slate-700 grid grid-cols-4 gap-2">
+            <div className="bg-slate-800 rounded-xl p-1 border border-slate-700 grid grid-cols-4 gap-1 flex-shrink-0">
                 {/* Track Button */}
                 <button
                     onClick={isTracking ? stopTracking : startTracking}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${isTracking
+                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition-all ${isTracking
                         ? 'bg-red-500/20 text-red-400 border border-red-500/50'
                         : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
                         }`}
                     title={isTracking ? "إيقاف التتبع" : "بدء التتبع"}
                 >
-                    {isTracking ? <Square size={20} className="mb-1" /> : <Play size={20} className="mb-1" />}
+                    {isTracking ? <Square size={18} className="mb-0.5" /> : <Play size={18} className="mb-0.5" />}
                     <span className="text-[10px] font-medium">{isTracking ? formatTime(elapsedTime) : 'تتبع'}</span>
                 </button>
 
@@ -270,10 +270,10 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                     }}
                     onDoubleClick={(e) => { e.preventDefault(); setShowSaveModal(true); }}
                     disabled={!currentLocation}
-                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
                     title="حفظ الموقع الحالي"
                 >
-                    <Bookmark size={20} className="mb-1" />
+                    <Bookmark size={18} className="mb-0.5" />
                     <span className="text-[10px] font-medium">حفظ</span>
                 </button>
 
@@ -285,23 +285,23 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                         }
                     }}
                     disabled={!currentLocation}
-                    className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
                     title="تحديد موقعي"
                 >
-                    <Target size={20} className="mb-1" />
+                    <Target size={18} className="mb-0.5" />
                     <span className="text-[10px] font-medium">موقعي</span>
                 </button>
 
                 {/* Toggle View Button */}
                 <button
                     onClick={() => setViewMode(viewMode === 'locations' ? 'trips' : 'locations')}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${viewMode === 'trips'
-                            ? 'bg-primary-500/20 text-primary-400 border border-primary-500/50'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition-all ${viewMode === 'trips'
+                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/50'
+                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
                         }`}
                     title="التبديل بين المواقع والرحلات"
                 >
-                    {viewMode === 'locations' ? <History size={20} className="mb-1" /> : <MapPin size={20} className="mb-1" />}
+                    {viewMode === 'locations' ? <History size={18} className="mb-0.5" /> : <MapPin size={18} className="mb-0.5" />}
                     <span className="text-[10px] font-medium">{viewMode === 'locations' ? 'السجل' : 'المواقع'}</span>
                 </button>
             </div>

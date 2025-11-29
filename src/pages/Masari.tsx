@@ -40,7 +40,7 @@ export default function Masari() {
 
             {/* BOTTOM HALF: Dashboard (50%) */}
             <div className="w-full h-[50%] relative z-10 bg-slate-900">
-                <div className="h-full w-full p-4">
+                <div className="h-full w-full p-1">
                     <MasariDashboard />
                 </div>
             </div>
