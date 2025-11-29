@@ -5,7 +5,7 @@ export const addShoppingItemToSystem = (name: string) => {
     const items = storage.get<ShoppingItem[]>('shoppingList') || [];
 
     const newItem: ShoppingItem = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         name: name,
         category: 'general',
         addedDate: new Date().toISOString(),

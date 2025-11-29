@@ -57,7 +57,7 @@ export default function Cooking() {
     const addToShoppingList = (ingredient: string) => {
         const currentList = storage.get<ShoppingItem[]>('shoppingList') || [];
         const newItem: ShoppingItem = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             name: ingredient,
             purchased: false,
             category: 'أخرى',
@@ -70,7 +70,7 @@ export default function Cooking() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
         return (
-            <div className="p-4 max-w-4xl mx-auto pb-24 text-center pt-20">
+            <div className="p-0 max-w-4xl mx-auto pb-24 text-center pt-20">
                 <ChefHat className="mx-auto text-slate-600 mb-4" size={64} />
                 <h2 className="text-2xl font-bold text-slate-400 mb-2">خدمة الطبخ غير متوفرة</h2>
                 <p className="text-slate-500">يرجى تكوين مفتاح API الخاص بـ Gemini لتفعيل هذه الميزة.</p>
@@ -79,7 +79,7 @@ export default function Cooking() {
     }
 
     return (
-        <div className="p-4 max-w-4xl mx-auto pb-24">
+        <div className="p-0 max-w-4xl mx-auto pb-24">
             <div className="flex items-center gap-3 mb-6">
                 <div className="bg-orange-500/10 p-3 rounded-xl">
                     <ChefHat className="text-orange-500" size={32} />

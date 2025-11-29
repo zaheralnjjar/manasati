@@ -57,7 +57,7 @@ export default function DevelopmentSection() {
         } else {
             // Add new goal
             const newGoal: DevelopmentGoal = {
-                id: crypto.randomUUID(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2),
                 title: title.trim(),
                 type,
                 link: link.trim(),
@@ -73,7 +73,7 @@ export default function DevelopmentSection() {
             if (frequency === 'once' || frequency === 'daily') {
                 const tasks = storage.get<Task[]>('tasks') || [];
                 const newTask: Task = {
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                     title: `${type === 'book' ? 'قراءة' : type === 'video' ? 'مشاهدة' : 'إنجاز'}: ${title}`,
                     completed: false,
                     date: new Date().toISOString(),

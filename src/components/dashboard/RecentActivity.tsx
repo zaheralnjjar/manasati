@@ -39,7 +39,7 @@ export default function RecentActivity() {
     const handleShare = async (item: any) => {
         let text = '';
         if (item.type === 'task') text = `مهمة: ${item.title}`;
-        if (item.type === 'finance') text = `معاملة: ${item.amount} - ${item.description}`;
+        if (item.type === 'finance') text = `معاملة: $${item.amount} - ${item.description}`;
         if (item.type === 'masari') text = `موقع: ${item.name} https://maps.google.com/?q=${item.lat},${item.lng}`;
         if (item.type === 'shopping') text = `تسوق: ${item.name}`;
         if (item.type === 'development') text = `هدف: ${item.title}`;

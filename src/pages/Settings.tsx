@@ -66,7 +66,7 @@ export default function Settings() {
     };
 
     return (
-        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24 space-y-6">
+        <div className="p-0 max-w-4xl mx-auto pb-24 space-y-6">
             {/* Header */}
             <div className="bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-700">
                 <h2 className="text-3xl font-bold flex items-center gap-3 text-white">
@@ -104,14 +104,15 @@ export default function Settings() {
                             </div>
                             <button
                                 onClick={() => toggleWidget(key as any)}
+                                dir="ltr"
                                 className={`w-14 h-7 rounded-full transition-all duration-300 relative ${settings.widgetVisibility[key as keyof typeof settings.widgetVisibility]
                                     ? 'bg-emerald-600'
                                     : 'bg-slate-700'
                                     }`}
                             >
-                                <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-300 ${settings.widgetVisibility[key as keyof typeof settings.widgetVisibility]
-                                    ? 'translate-x-8'
-                                    : 'translate-x-1'
+                                <div className={`w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 ${settings.widgetVisibility[key as keyof typeof settings.widgetVisibility]
+                                    ? 'translate-x-7'
+                                    : 'translate-x-0'
                                     } shadow-md`} />
                             </button>
                         </div>
@@ -147,12 +148,13 @@ export default function Settings() {
                             </div>
                             <button
                                 onClick={() => toggleNavVisibility(key)}
+                                dir="ltr"
                                 className={`w-14 h-7 rounded-full transition-all duration-300 relative ${settings.navVisibility[key]
                                     ? 'bg-emerald-600'
                                     : 'bg-slate-700'
                                     }`}
                             >
-                                <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-300 ${settings.navVisibility[key] ? 'translate-x-8' : 'translate-x-1'
+                                <div className={`w-5 h-5 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 ${settings.navVisibility[key] ? 'translate-x-7' : 'translate-x-0'
                                     } shadow-md`} />
                             </button>
                         </div>

@@ -34,7 +34,7 @@ export default function AzkarSection() {
             // Initialize with some predefined Azkar
             const initial: AzkarItem[] = PREDEFINED_AZKAR.map(a => ({
                 ...a,
-                id: crypto.randomUUID(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2),
                 currentCount: 0,
                 isDaily: false // Default to false for predefined unless specified
             }));
@@ -64,11 +64,11 @@ export default function AzkarSection() {
         } else {
             // Add new
             const newItem: AzkarItem = {
-                id: crypto.randomUUID(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2),
                 text: newAzkarText,
+                category: 'custom',
                 targetCount: newAzkarCount,
                 currentCount: 0,
-                category: 'custom',
                 isDaily: isDaily
             };
             setAzkarList([...azkarList, newItem]);

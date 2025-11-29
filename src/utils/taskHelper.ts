@@ -8,7 +8,7 @@ export const addTaskToSystem = (
     const tasks = storage.get<Task[]>('tasks') || [];
 
     const newTask: Task = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         title: title,
         completed: false,
         date: new Date().toISOString().split('T')[0], // Default to today

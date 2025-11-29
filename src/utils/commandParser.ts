@@ -42,7 +42,7 @@ export const commandParser = {
         // 1. Appointments
         if (lowerCmd.includes('موعد') || lowerCmd.includes('appointment')) {
             const newTask: Task = {
-                id: crypto.randomUUID(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2),
                 title: `📅 موعد: ${command}`,
                 completed: false,
                 date: new Date().toISOString().split('T')[0],
@@ -74,7 +74,7 @@ export const commandParser = {
                 else if (text.match(/(خبز|رز|مكرونة|bread|rice)/)) category = 'بقالة';
 
                 return {
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                     name: text,
                     purchased: false,
                     category: category,
@@ -102,7 +102,7 @@ export const commandParser = {
         if (lowerCmd.includes('قراءة') || lowerCmd.includes('read') || lowerCmd.includes('كتاب')) {
             const title = command.replace(/(أضف هدف|قراءة|كتاب|read|book)/gi, '').trim();
             const newGoal: DevelopmentGoal = {
-                id: crypto.randomUUID(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2),
                 title: title,
                 type: 'book',
                 frequency: 'once',

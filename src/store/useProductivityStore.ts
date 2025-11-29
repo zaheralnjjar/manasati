@@ -40,7 +40,7 @@ export const useProductivityStore = create<ProductivityState>((set, get) => ({
     addTask: async (taskData) => {
         const task: Task = {
             ...taskData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().tasks, task];
         set({ tasks: updated });
@@ -77,7 +77,7 @@ export const useProductivityStore = create<ProductivityState>((set, get) => ({
     addAppointment: async (appointmentData) => {
         const appointment: Appointment = {
             ...appointmentData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().appointments, appointment];
         set({ appointments: updated });
@@ -96,7 +96,7 @@ export const useProductivityStore = create<ProductivityState>((set, get) => ({
         if (!videoId) return;
 
         const video: YouTubeVideo = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             url,
             videoId,
             addedDate: new Date().toISOString(),
@@ -114,7 +114,7 @@ export const useProductivityStore = create<ProductivityState>((set, get) => ({
 
     addHabit: async (name) => {
         const habit: Habit = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             name,
             tracking: {},
         };

@@ -8,7 +8,7 @@ export const addGoalToSystem = (
     const goals = storage.get<DevelopmentGoal[]>('developmentGoals') || [];
 
     const newGoal: DevelopmentGoal = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         title: title,
         type: options.type || 'book',
         frequency: options.frequency || 'once',
@@ -24,7 +24,7 @@ export const addGoalToSystem = (
     if (newGoal.frequency === 'once' || newGoal.frequency === 'daily') {
         const tasks = storage.get<Task[]>('tasks') || [];
         const newTask: Task = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             title: `${newGoal.type === 'book' ? 'قراءة' : newGoal.type === 'video' ? 'مشاهدة' : 'إنجاز'}: ${title}`,
             completed: false,
             date: new Date().toISOString(),

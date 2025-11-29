@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Quote, CheckSquare, Wallet, Moon, Calendar, MapPin } from 'lucide-react';
+import { Quote, CheckSquare, Wallet, Moon, Calendar, MapPin, ShoppingCart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useProductivityStore } from '../store/useProductivityStore';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useMasariStore } from '../store/useMasariStore';
 import { usePrayerSync } from '../hooks/usePrayerSync';
+import { storage } from '../utils/storage';
 
 const AZKAR_SAMPLES = [
     "سبحان الله وبحمده",
@@ -131,7 +132,32 @@ export default function DashboardTicker() {
             }
         });
 
-        // 5. Saved Locations (Masari)
+        // 5. Shopping List (Urgent/Medium)
+        const shoppingList = storage.get<any[]>('shoppingList') || [];
+        const urgentShopping = shoppingList.filter(i => !i.purchased && i.priority === 'urgent');
+
+        if (urgentShopping.length > 0) {
+            newItems.push({
+                icon: ShoppingCart,
+                text: `تسوق عاجل: ${urgentShopping.length} عناصر (${urgentShopping[0].name}...)`,
+                color: 'text-red-400',
+                type: 'shopping',
+                data: { count: urgentShopping.length, items: urgentShopping }
+            });
+        } else {
+            const activeShopping = shoppingList.filter(i => !i.purchased);
+            if (activeShopping.length > 0) {
+                newItems.push({
+                    icon: ShoppingCart,
+                    text: `قائمة التسوق: ${activeShopping.length} عناصر`,
+                    color: 'text-orange-400',
+                    type: 'shopping',
+                    data: { count: activeShopping.length, items: activeShopping.slice(0, 3) }
+                });
+            }
+        }
+
+        // 6. Saved Locations (Masari)
         if (savedLocations.length > 0) {
             const lastLocation = savedLocations[savedLocations.length - 1];
             newItems.push({
@@ -293,6 +319,20 @@ export default function DashboardTicker() {
                                             : `📅 ${selectedItem.data.title}`
                                         }
                                     </p>
+                                )}
+
+                                {selectedItem.type === 'shopping' && (
+                                    <div>
+                                        <p className="mb-2">عناصر التسوق: <span className="font-bold text-white">{selectedItem.data.count}</span></p>
+                                        <ul className="list-disc list-inside space-y-1 text-xs">
+                                            {selectedItem.data.items.map((i: any) => (
+                                                <li key={i.id} className="truncate flex justify-between">
+                                                    <span>{i.name}</span>
+                                                    {i.priority === 'urgent' && <span className="text-red-400 text-[10px]">(عاجل)</span>}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 )}
 
                                 {selectedItem.type === 'dollar' && (

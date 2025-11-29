@@ -49,7 +49,7 @@ export const useSpiritualStore = create<SpiritualState>((set, get) => ({
     addReadingGoal: async (goalData) => {
         const goal: ReadingGoal = {
             ...goalData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().readingGoals, goal];
         set({ readingGoals: updated });
@@ -77,7 +77,7 @@ export const useSpiritualStore = create<SpiritualState>((set, get) => ({
     addAdhkar: async (adhkarData) => {
         const adhkar: AdhkarCounter = {
             ...adhkarData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().adhkarCounters, adhkar];
         set({ adhkarCounters: updated });

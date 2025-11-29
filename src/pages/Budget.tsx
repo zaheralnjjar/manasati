@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, TrendingUp, TrendingDown, DollarSign, Settings, PieChart as PieChartIcon, Activity, Wallet, Trash2, PiggyBank, FileText } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, DollarSign, PieChart as PieChartIcon, FileText, Download, FileSpreadsheet, Activity, PiggyBank, X, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import type { Transaction, BudgetCategoryExtended } from '../types';
 import { storage } from '../utils/storage';
 import { normalizeNumbers } from '../utils/numberHelper';
 
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#a855f7', '#ec4899'];
 
@@ -43,6 +45,9 @@ export default function Budget() {
     const [settingsTab, setSettingsTab] = useState<'salary' | 'categories' | 'income'>('salary');
     const [salary, setSalary] = useState('');
     const [salaryDate, setSalaryDate] = useState('1');
+
+    // Export State
+    const [showExportMenu, setShowExportMenu] = useState(false);
 
     // New Category State
     const [newCatName, setNewCatName] = useState('');
@@ -94,26 +99,20 @@ export default function Budget() {
             } else {
                 setAmount(''); // Clear amount if inputs are invalid
             }
-        } else {
-            // Clear calculator inputs if not a savings calc category
-            if (exchangeRate !== '' || foreignAmount !== '') {
-                setExchangeRate('');
-                setForeignAmount('');
-            }
         }
     }, [exchangeRate, foreignAmount, selectedCategoryId, categories]);
 
-    const saveSalarySettings = () => {
+    const saveSettings = () => {
         storage.set('salary', salary);
         storage.set('salaryDate', salaryDate);
-        alert('تم حفظ إعدادات الراتب');
+        setShowSettings(false);
     };
 
-    const addCategory = () => {
-        if (!newCatName.trim()) return;
+    const handleAddCategory = () => {
+        if (!newCatName) return;
         const newCat: BudgetCategoryExtended = {
-            id: crypto.randomUUID(),
-            name: newCatName.trim(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
+            name: newCatName,
             type: newCatType,
             isDefault: false
         };
@@ -121,7 +120,7 @@ export default function Budget() {
         setNewCatName('');
     };
 
-    const deleteCategory = (id: string) => {
+    const handleDeleteCategory = (id: string) => {
         if (confirm('هل أنت متأكد من حذف هذا التصنيف؟')) {
             setCategories(categories.filter(c => c.id !== id));
         }
@@ -129,57 +128,79 @@ export default function Budget() {
 
     const addTransaction = () => {
         if (!amount || !selectedCategoryId) {
-            alert('الرجاء تعبئة الحقول المطلوبة (المبلغ، التصنيف)');
+            alert('يرجى إدخال المبلغ واختيار التصنيف');
             return;
         }
 
-        const cat = categories.find(c => c.id === selectedCategoryId);
-        const isSavingsCalc = cat?.id === 'usd' || cat?.id === 'gold';
-
-        const newTransaction: Transaction = {
-            id: Date.now().toString(),
-            type,
+        const newTrans: Transaction = {
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             amount: parseFloat(amount),
             category: selectedCategoryId,
-            description: description.trim(),
+            description: description || 'بدون وصف',
             date: new Date().toISOString(),
-            metadata: isSavingsCalc ? {
-                exchangeRate: parseFloat(exchangeRate),
-                foreignAmount: parseFloat(foreignAmount),
-                unit: cat?.id === 'usd' ? 'USD' : 'GRAM'
-            } : undefined
+            type: type
         };
 
-        setTransactions([newTransaction, ...transactions]);
+        setTransactions([newTrans, ...transactions]);
         setAmount('');
         setDescription('');
-        setExchangeRate('');
         setForeignAmount('');
+        // Keep exchange rate
     };
 
     const deleteTransaction = (id: string) => {
-        if (confirm('حذف هذه المعاملة؟')) {
+        if (confirm('هل أنت متأكد من حذف هذه العملية؟')) {
             setTransactions(transactions.filter(t => t.id !== id));
         }
     };
 
     // Export Functions
-
-
     const exportExcel = () => {
         const data = transactions.map(t => ({
-            التاريخ: new Date(t.date).toLocaleDateString('ar-EG'),
-            النوع: t.type === 'income' ? 'دخل' : t.type === 'expense' ? 'مصروف' : 'ادخار',
-            التصنيف: categories.find(c => c.id === t.category)?.name || t.category,
-            الوصف: t.description,
-            المبلغ: t.amount,
-            'تفاصيل إضافية': t.metadata ? `${t.metadata.foreignAmount} ${t.metadata.unit} بسعر ${t.metadata.exchangeRate}` : ''
+            Date: new Date(t.date).toLocaleDateString('en-US'),
+            Type: t.type,
+            Category: categories.find(c => c.id === t.category)?.name || t.category,
+            Amount: t.amount,
+            Description: t.description
         }));
 
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Transactions");
         XLSX.writeFile(wb, "budget-report.xlsx");
+        setShowExportMenu(false);
+    };
+
+    const exportPDF = async () => {
+        const input = document.getElementById('budget-report-table');
+        if (!input) return;
+
+        try {
+            const canvas = await html2canvas(input, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#1e293b' // Slate-800
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save("budget-report.pdf");
+            setShowExportMenu(false);
+        } catch (error) {
+            console.error('PDF Export failed:', error);
+            alert('فشل تصدير PDF');
+        }
     };
 
     // Calculations
@@ -236,50 +257,59 @@ export default function Budget() {
     const isSavingsCalc = selectedCategory?.id === 'usd' || selectedCategory?.id === 'gold';
 
     return (
-        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Wallet className="text-primary-500" />
-                    <span>الميزانية والمدخرات</span>
-                </h2>
-                <div className="flex gap-2">
+        <div className="p-0 max-w-4xl mx-auto pb-24">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-sm p-4 border-b border-slate-800 flex justify-between items-center gap-2 mb-6">
+                <div className="relative">
                     <button
-                        onClick={exportExcel}
-                        className="p-2 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30"
-                        title="تصدير Excel"
+                        onClick={() => setShowExportMenu(!showExportMenu)}
+                        className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:text-white hover:bg-slate-700 transition-colors"
+                        title="تصدير التقرير"
                     >
-                        <FileText size={20} />
+                        <Download size={20} />
+                    </button>
+
+                    {showExportMenu && (
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800 rounded-xl border border-slate-700 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 z-50">
+                            <button onClick={exportExcel} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition-colors text-right">
+                                <FileSpreadsheet size={18} className="text-green-500" />
+                                <span>Excel تصدير</span>
+                            </button>
+                            <button onClick={exportPDF} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition-colors text-right border-t border-slate-700">
+                                <FileText size={18} className="text-red-500" />
+                                <span>PDF تصدير</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                    <button
+                        onClick={() => { setSettingsTab('income'); setShowSettings(true); }}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${showSettings && settingsTab === 'income' ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                    >
+                        الدخل والراتب
                     </button>
                     <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                        onClick={() => { setSettingsTab('categories'); setShowSettings(true); }}
+                        className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${showSettings && settingsTab === 'categories' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                     >
-                        <Settings size={20} />
+                        التصنيفات
                     </button>
                 </div>
             </div>
 
-            {/* Settings Modal */}
+            {/* Settings Modal - Controlled by Sticky Header */}
             {showSettings && (
-                <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-6 animate-in fade-in slide-in-from-top-4">
-                    <div className="flex gap-4 mb-6 border-b border-slate-700 pb-2 overflow-x-auto">
-                        <button
-                            onClick={() => setSettingsTab('salary')}
-                            className={`pb-2 whitespace-nowrap ${settingsTab === 'salary' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400'}`}
-                        >
-                            إعدادات الراتب
-                        </button>
-                        <button
-                            onClick={() => setSettingsTab('categories')}
-                            className={`pb-2 whitespace-nowrap ${settingsTab === 'categories' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400'}`}
-                        >
-                            إدارة التصنيفات
-                        </button>
-                        <button
-                            onClick={() => setSettingsTab('income')}
-                            className={`pb-2 whitespace-nowrap ${settingsTab === 'income' ? 'text-green-400 border-b-2 border-green-400' : 'text-slate-400'}`}
-                        >
-                            تسجيل دخل
+                <div className="bg-slate-800 rounded-xl p-4 md:p-6 border border-slate-700 mb-6 animate-in fade-in slide-in-from-top-4 mx-4 md:mx-0">
+                    <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                        <h3 className="font-bold text-white">
+                            {settingsTab === 'salary' && 'إعدادات الراتب'}
+                            {settingsTab === 'categories' && 'إدارة التصنيفات'}
+                            {settingsTab === 'income' && 'تسجيل دخل'}
+                        </h3>
+                        <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">
+                            <X size={18} />
                         </button>
                     </div>
 
@@ -306,31 +336,35 @@ export default function Budget() {
                                     dir="ltr"
                                 />
                             </div>
-                            <button onClick={saveSalarySettings} className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2 rounded-lg">
+                            <button onClick={saveSettings} className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2 rounded-lg">
                                 حفظ الإعدادات
                             </button>
                         </div>
                     ) : settingsTab === 'categories' ? (
                         <div className="space-y-4">
-                            <div className="flex gap-2">
+                            <h3 className="font-bold mb-3 text-sm text-slate-400">إدارة التصنيفات</h3>
+                            <div className="flex flex-col md:flex-row gap-3 mb-4 md:mb-6">
                                 <input
                                     type="text"
                                     value={newCatName}
                                     onChange={(e) => setNewCatName(e.target.value)}
                                     placeholder="اسم التصنيف الجديد"
-                                    className="flex-1 bg-slate-700 rounded-lg px-4 py-2"
+                                    className="w-full md:flex-1 bg-slate-700 rounded-lg px-3 py-3 md:py-2 text-sm"
                                 />
                                 <select
                                     value={newCatType}
-                                    onChange={(e) => setNewCatType(e.target.value as any)}
-                                    className="bg-slate-700 rounded-lg px-2"
+                                    onChange={(e) => setNewCatType(e.target.value as 'expense' | 'income')}
+                                    className="w-full md:w-auto bg-slate-700 rounded-lg px-3 py-3 md:py-2 text-sm"
                                 >
-                                    <option value="income">دخل</option>
                                     <option value="expense">مصروف</option>
-                                    <option value="savings">ادخار</option>
+                                    <option value="income">دخل</option>
                                 </select>
-                                <button onClick={addCategory} className="bg-green-600 text-white px-4 rounded-lg">
-                                    <Plus size={20} />
+                                <button
+                                    onClick={handleAddCategory}
+                                    className="w-full md:w-auto bg-green-600 text-white px-4 py-3 md:py-2 rounded-lg flex items-center justify-center gap-2"
+                                >
+                                    <Plus size={18} />
+                                    <span className="md:hidden">إضافة</span>
                                 </button>
                             </div>
 
@@ -347,8 +381,8 @@ export default function Budget() {
                                             </span>
                                         </div>
                                         {!cat.isDefault && (
-                                            <button onClick={() => deleteCategory(cat.id)} className="text-red-400 hover:text-red-300">
-                                                <Trash2 size={16} />
+                                            <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-400 hover:text-red-300">
+                                                <X size={16} />
                                             </button>
                                         )}
                                     </div>
@@ -398,8 +432,8 @@ export default function Budget() {
                                     <button
                                         onClick={() => {
                                             setType('income');
-                                            // Need to wait for state update or pass type directly? 
-                                            // addTransaction uses state 'type'. 
+                                            // Need to wait for state update or pass type directly?
+                                            // addTransaction uses state 'type'.
                                             // Let's modify addTransaction to accept type override or use a separate handler.
                                             // For now, let's just call a wrapper.
                                             setTimeout(addTransaction, 0);
@@ -417,14 +451,14 @@ export default function Budget() {
             )}
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
                     <div className="flex items-center gap-2 mb-1 text-slate-400 text-sm">
                         <DollarSign size={16} />
                         <span>الرصيد المتاح</span>
                     </div>
-                    <p className={`text-xl font-bold ${currentBalance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {currentBalance.toFixed(2)}
+                    <p className="text-2xl font-bold text-white">
+                        ${currentBalance.toFixed(2)}
                     </p>
                 </div>
 
@@ -434,7 +468,7 @@ export default function Budget() {
                         <span>إجمالي المدخرات</span>
                     </div>
                     <p className="text-xl font-bold text-purple-400">
-                        {totalSavings.toFixed(2)}
+                        ${totalSavings.toFixed(2)}
                     </p>
                 </div>
 
@@ -443,7 +477,7 @@ export default function Budget() {
                         <TrendingUp size={16} />
                         <span>الدخل</span>
                     </div>
-                    <p className="text-xl font-bold text-green-400">{(totalIncome + monthlySalary).toFixed(2)}</p>
+                    <p className="text-xl font-bold text-green-400">${(totalIncome + monthlySalary).toFixed(2)}</p>
                 </div>
 
                 <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
@@ -479,11 +513,11 @@ export default function Budget() {
                 </div>
 
                 <div className="space-y-3">
-                    <div className="flex gap-3">
+                    <div className="flex flex-col md:flex-row gap-3">
                         <select
                             value={selectedCategoryId}
                             onChange={(e) => setSelectedCategoryId(e.target.value)}
-                            className="w-1/3 bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            className="w-full md:w-1/3 bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                             {categories.filter(c => c.type === type).map(cat => (
                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
@@ -515,7 +549,7 @@ export default function Budget() {
                                 value={amount}
                                 onChange={(e) => setAmount(normalizeNumbers(e.target.value))}
                                 placeholder="المبلغ"
-                                className="flex-1 bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                className="w-full md:flex-1 bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 dir="ltr"
                             />
                         )}
@@ -668,6 +702,61 @@ export default function Budget() {
                     <p className="text-slate-500 text-sm mt-1">ابدأ بتسجيل مصاريفك اليومية</p>
                 </div>
             )}
+            {/* Hidden Table for PDF Export */}
+            <div className="absolute top-[-9999px] left-[-9999px] w-[800px]" id="budget-report-table">
+                <div className="bg-slate-800 p-8 text-white" dir="rtl">
+                    <h1 className="text-3xl font-bold mb-6 text-center text-primary-500">تقرير الميزانية</h1>
+
+                    <div className="grid grid-cols-3 gap-4 mb-8">
+                        <div className="bg-slate-700 p-4 rounded-lg text-center">
+                            <p className="text-slate-400 text-sm">الدخل</p>
+                            <p className="text-xl font-bold text-green-400">{totalIncome.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-slate-700 p-4 rounded-lg text-center">
+                            <p className="text-slate-400 text-sm">المصروفات</p>
+                            <p className="text-xl font-bold text-red-400">{totalExpense.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-slate-700 p-4 rounded-lg text-center">
+                            <p className="text-slate-400 text-sm">الرصيد</p>
+                            <p className="text-xl font-bold text-blue-400">{currentBalance.toFixed(2)}</p>
+                        </div>
+                    </div>
+
+                    <table className="w-full text-right border-collapse">
+                        <thead>
+                            <tr className="bg-slate-700 text-slate-300">
+                                <th className="p-3 border border-slate-600">التاريخ</th>
+                                <th className="p-3 border border-slate-600">النوع</th>
+                                <th className="p-3 border border-slate-600">التصنيف</th>
+                                <th className="p-3 border border-slate-600">الوصف</th>
+                                <th className="p-3 border border-slate-600">المبلغ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {transactions.map((t, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-slate-800' : 'bg-slate-750'}>
+                                    <td className="p-3 border border-slate-700">{new Date(t.date).toLocaleDateString('ar-EG')}</td>
+                                    <td className="p-3 border border-slate-700">
+                                        {t.type === 'income' ? 'دخل' : t.type === 'savings' ? 'ادخار' : 'مصروف'}
+                                    </td>
+                                    <td className="p-3 border border-slate-700">
+                                        {categories.find(c => c.id === t.category)?.name || t.category}
+                                    </td>
+                                    <td className="p-3 border border-slate-700">{t.description}</td>
+                                    <td className={`p-3 border border-slate-700 font-bold ${t.type === 'income' ? 'text-green-400' :
+                                        t.type === 'savings' ? 'text-purple-400' : 'text-red-400'
+                                        }`}>
+                                        {t.amount.toFixed(2)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div className="mt-8 text-center text-slate-500 text-sm">
+                        تم استخراج هذا التقرير من منصتي
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

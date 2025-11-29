@@ -138,7 +138,7 @@ export const executeTool = async (name: string, args: any) => {
       const { amount, description, type, category } = args;
       const transactions = storage.get<Transaction[]>('transactions') || [];
       const newTransaction: Transaction = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         amount: Number(amount),
         description,
         type: type as 'income' | 'expense',
@@ -154,7 +154,7 @@ export const executeTool = async (name: string, args: any) => {
       const { item, category } = args;
       const items = storage.get<ShoppingItem[]>('shoppingList') || [];
       const newItem: ShoppingItem = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         name: item,
         purchased: false,
         category: category || 'أخرى',
@@ -187,7 +187,7 @@ export const executeTool = async (name: string, args: any) => {
       // ... (rest of reading item logic seems fine if BookGoal matches)
       const books = storage.get<BookGoal[]>('bookGoals') || [];
       const newBook: BookGoal = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         title,
         totalPages: pages || 100,
         durationDays: days || 30,
@@ -212,7 +212,7 @@ export const executeTool = async (name: string, args: any) => {
       const { title, type, frequency } = args;
       const goals = storage.get<DevelopmentGoal[]>('developmentGoals') || [];
       const newGoal: DevelopmentGoal = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
         title,
         type: type as any,
         frequency: frequency || 'once',

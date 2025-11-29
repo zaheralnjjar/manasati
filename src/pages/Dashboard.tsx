@@ -7,7 +7,7 @@ import {
 import { useAppStore } from '../store/useAppStore';
 import { useProductivityStore } from '../store/useProductivityStore';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useSpiritualStore } from '../store/useSpiritualStore';
+import { useDevelopmentStore } from '../store/useDevelopmentStore';
 import { useLifestyleStore } from '../store/useLifestyleStore';
 import { useMasariStore } from '../store/useMasariStore';
 import DashboardTicker from '../components/DashboardTicker';
@@ -27,7 +27,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const { user, settings } = useAppStore();
     const { tasks, appointments, initialize: initProductivity } = useProductivityStore();
     const { getBudgetSummary, initialize: initFinance } = useFinanceStore();
-    const { readingGoals, initialize: initSpiritual } = useSpiritualStore();
+    const { goals: developmentGoals, initialize: initDevelopment } = useDevelopmentStore();
     const { shoppingList, initialize: initLifestyle } = useLifestyleStore();
     const { savedLocations, currentLocation, updateLocation } = useMasariStore();
 
@@ -38,7 +38,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     useEffect(() => {
         initProductivity();
         initFinance();
-        initSpiritual();
+        initDevelopment();
         initLifestyle();
     }, []);
 
@@ -48,7 +48,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     updateLocation({
-                        id: crypto.randomUUID(),
+                        id: Date.now().toString() + Math.random().toString(36).substring(2),
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                         timestamp: Date.now(),
@@ -83,7 +83,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         return dueDate >= today && dueDate < tomorrow && !t.completed;
     });
 
-    const activeReading = readingGoals.find(g => !g.completed);
+    const activeReading = developmentGoals.find(g => g.status === 'active');
+    const readingGoals = developmentGoals.filter(g => g.type === 'book' && g.status === 'active');
 
 
     // Collapsible State
@@ -177,9 +178,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         <div className="pb-24 min-h-screen bg-slate-900 text-slate-100 font-cairo">
             <DashboardTicker />
 
-            <div className="p-0 md:p-6 max-w-7xl mx-auto space-y-1 md:space-y-6">
+            <div className="p-0 max-w-7xl mx-auto space-y-1">
                 {/* Header - Split: Right (Greeting+Date) | Left (Location+Settings) */}
-                <div className="flex justify-between items-start gap-2 mb-1 md:mb-6 px-2 pt-2">
+                <div className="flex justify-between items-start gap-2 mb-1 md:mb-6">
                     {/* Right Side: Greeting + Date */}
                     <div className="flex-1">
                         <h1 className="text-lg md:text-3xl font-bold text-white mb-0">

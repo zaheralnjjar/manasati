@@ -86,7 +86,7 @@ export const useMasariStore = create<MasariState>()(
 
             startTracking: () => {
                 const newTrip: Trip = {
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                     startTime: Date.now(),
                     points: [],
                     distance: 0
@@ -164,7 +164,7 @@ export const useMasariStore = create<MasariState>()(
                 if (!currentLocation) return;
 
                 const newLocation: SavedLocation = {
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                     name,
                     lat: currentLocation.lat,
                     lng: currentLocation.lng,
@@ -192,7 +192,7 @@ export const useMasariStore = create<MasariState>()(
                 };
 
                 const newLocation: SavedLocation = {
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                     name: generateName(),
                     lat,
                     lng,
@@ -208,7 +208,7 @@ export const useMasariStore = create<MasariState>()(
             addSavedLocation: (location) => {
                 const newLocation: SavedLocation = {
                     ...location,
-                    id: crypto.randomUUID(),
+                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                     savedAt: Date.now()
                 };
 

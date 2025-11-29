@@ -65,7 +65,7 @@ export const useLifestyleStore = create<LifestyleState>((set, get) => ({
 
     addShoppingItem: async (name, category) => {
         const item: ShoppingItem = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             name,
             category: category || categorizeItem(name),
             purchased: false,
@@ -99,7 +99,7 @@ export const useLifestyleStore = create<LifestyleState>((set, get) => ({
     addRecipe: async (recipeData) => {
         const recipe: Recipe = {
             ...recipeData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().recipes, recipe];
         set({ recipes: updated });
@@ -117,7 +117,7 @@ export const useLifestyleStore = create<LifestyleState>((set, get) => ({
         if (!recipe) return;
 
         const newItems: ShoppingItem[] = recipe.ingredients.map(ingredient => ({
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             name: ingredient,
             category: categorizeItem(ingredient),
             purchased: false,
@@ -132,7 +132,7 @@ export const useLifestyleStore = create<LifestyleState>((set, get) => ({
 
     startCookingSession: async (recipeId) => {
         const session: CookingSession = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             recipeId,
             checkedIngredients: [],
             currentStep: 0,

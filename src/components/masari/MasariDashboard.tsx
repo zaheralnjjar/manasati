@@ -73,7 +73,7 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                 watchId = navigator.geolocation.watchPosition(
                     (position) => {
                         const point: LocationPoint = {
-                            id: crypto.randomUUID(),
+                            id: Date.now().toString() + Math.random().toString(36).substring(2),
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
                             timestamp: position.timestamp,
@@ -327,292 +327,302 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
 
             {/* 2. Unified List Area - Full Width */}
             <div className="flex-1 bg-slate-900 overflow-hidden flex flex-col min-h-0">
-                {/* List Header */}
-                <div className="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-                    <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                        {viewMode === 'locations' ? (
-                            <><Bookmark size={16} className="text-primary-500" /> المواقع المحفوظة ({savedLocations.length})</>
-                        ) : (
-                            <><History size={16} className="text-emerald-500" /> سجل الرحلات ({tripHistory.length})</>
-                        )}
-                    </h3>
-
-                    {/* Filter Tabs (Only for Locations) */}
-                    {viewMode === 'locations' && (
-                        <div className="flex gap-1">
-                            <button onClick={() => setActiveTab('all')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>الكل</button>
-                            <button onClick={() => setActiveTab('parking')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'parking' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🚗</button>
-                            <button onClick={() => setActiveTab('place')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'place' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>📍</button>
-                            <button onClick={() => setActiveTab('studio')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 transition-all ${activeTab === 'studio' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
-                                <ImageIcon size={16} />
-                                استوديو
-                            </button>
+                {/* 2. Unified List Area - Full Width */}
+                <div className="flex-1 bg-slate-900 overflow-hidden flex flex-col min-h-0">
+                    {/* List Header */}
+                    <div className="p-2 border-b border-slate-700 bg-slate-800/50">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                                {viewMode === 'locations' ? (
+                                    <><Bookmark size={16} className="text-primary-500" /> المواقع المحفوظة ({savedLocations.length})</>
+                                ) : (
+                                    <><History size={16} className="text-emerald-500" /> سجل الرحلات ({tripHistory.length})</>
+                                )}
+                            </h3>
                         </div>
-                    )}
-                </div>
 
-                {/* List Content */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
-                    {viewMode === 'locations' ? (
-                        activeTab === 'studio' ? (
-                            // --- PHOTO STUDIO ---
-                            <PhotoStudio />
-                        ) : (
-                            // --- LOCATIONS LIST ---
-                            filteredLocations.length === 0 ? (
-                                <div className="text-center py-8 text-slate-500 text-sm">لا توجد مواقع محفوظة</div>
-                            ) : (
-                                filteredLocations.map(location => (
-                                    <div key={location.id} className="bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 flex justify-between items-center group">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-lg flex-shrink-0">
-                                                {location.icon === 'car' ? '🚗' : location.icon === 'home' ? '🏠' : location.icon === 'work' ? '💼' : '📍'}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="text-sm font-medium text-white truncate">{location.name}</div>
-                                                <div className="text-[10px] text-slate-500 truncate">
-                                                    {new Date(location.savedAt).toLocaleString('ar-SA-u-ca-gregory', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleNavigate(location.lat, location.lng)} className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-700/50 rounded"><Navigation size={14} /></button>
-                                            <button onClick={() => deleteSavedLocation(location.id)} className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-700/50 rounded"><Trash2 size={14} /></button>
-                                        </div>
-                                    </div>
-                                ))
-                            )
-                        )
-                    ) : (
-                        // --- TRIPS LIST ---
-                        tripHistory.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500 text-sm">لا توجد رحلات مسجلة</div>
-                        ) : (
-                            tripHistory.map(trip => (
-                                <button
-                                    key={trip.id}
-                                    onClick={() => useMasariStore.getState().selectTrip(trip)}
-                                    className="w-full text-right bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 group focus:ring-1 focus:ring-primary-500"
-                                >
-                                    <div className="flex justify-between items-center mb-1">
-                                        <div className="text-sm font-medium text-white flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                            رحلة {formatDate(trip.startTime)}
-                                        </div>
-                                        <div className="text-[10px] text-slate-500">
-                                            {trip.endTime ? formatTime(Math.floor((trip.endTime - trip.startTime) / 1000)) : '--:--'}
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex gap-3 text-xs text-slate-400">
-                                            <span className="flex items-center gap-1"><Navigation size={10} /> {trip.distance.toFixed(2)} كم</span>
-                                            <span className="flex items-center gap-1"><MapPin size={10} /> {trip.points.length} نقطة</span>
-                                        </div>
-                                        <div onClick={(e) => { e.stopPropagation(); deleteTrip(trip.id); }} className="p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                            <Trash2 size={14} />
-                                        </div>
-                                    </div>
+                        {/* Filter Tabs (Only for Locations) - New Row */}
+                        {viewMode === 'locations' && (
+                            <div className="flex gap-2 justify-start overflow-x-auto pb-1 scrollbar-hide">
+                                <button onClick={() => setActiveTab('all')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'all' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>الكل</button>
+                                <button onClick={() => setActiveTab('parking')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0 flex items-center gap-1 ${activeTab === 'parking' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                                    <span>🚗</span> <span>سيارة</span>
                                 </button>
-                            ))
-                        )
-                    )}
-                </div>
-            </div>
-
-            {/* Save Location Modal - Floating Window */}
-            {
-                showSaveModal && createPortal(
-                    <div className="fixed top-24 left-0 right-0 z-[9999] flex justify-center pointer-events-none px-4">
-                        <div className="bg-slate-800/95 backdrop-blur-md rounded-xl border border-slate-600 shadow-2xl w-full max-w-sm p-4 pointer-events-auto max-h-[80vh] overflow-y-auto transition-all">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-bold text-white">
-                                    {editingLocation ? 'تعديل الموقع' : 'حفظ موقع جديد'}
-                                </h3>
-                                <button
-                                    onClick={() => {
-                                        setShowSaveModal(false);
-                                        setEditingLocation(null);
-                                        setLocationForm({
-                                            name: '',
-                                            category: 'parking',
-                                            icon: 'car',
-                                            notes: '',
-                                            photo: undefined
-                                        });
-                                    }}
-                                    className="text-slate-400 hover:text-white"
-                                >
-                                    <X size={20} />
+                                <button onClick={() => setActiveTab('place')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0 flex items-center gap-1 ${activeTab === 'place' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                                    <span>📍</span> <span>دبوس</span>
+                                </button>
+                                <button onClick={() => setActiveTab('studio')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex-shrink-0 flex items-center gap-1 ${activeTab === 'studio' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                                    <ImageIcon size={14} />
+                                    <span>استوديو</span>
                                 </button>
                             </div>
+                        )}
+                    </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        اسم الموقع
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={locationForm.name}
-                                        onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-primary-500"
-                                        placeholder="مثال: موقف السيارة"
-                                    />
+                    {/* List Content */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
+                        {viewMode === 'locations' ? (
+                            activeTab === 'studio' ? (
+                                // --- PHOTO STUDIO ---
+                                <PhotoStudio />
+                            ) : (
+                                // --- LOCATIONS LIST ---
+                                filteredLocations.length === 0 ? (
+                                    <div className="text-center py-8 text-slate-500 text-sm">لا توجد مواقع محفوظة</div>
+                                ) : (
+                                    filteredLocations.map(location => (
+                                        <div key={location.id} className="bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 flex justify-between items-center group">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-lg flex-shrink-0">
+                                                    {location.icon === 'car' ? '🚗' : location.icon === 'home' ? '🏠' : location.icon === 'work' ? '💼' : '📍'}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-medium text-white truncate">{location.name}</div>
+                                                    <div className="text-[10px] text-slate-500 truncate">
+                                                        {new Date(location.savedAt).toLocaleString('ar-SA-u-ca-gregory', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleNavigate(location.lat, location.lng)} className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-700/50 rounded"><Navigation size={14} /></button>
+                                                <button onClick={() => deleteSavedLocation(location.id)} className="p-1.5 text-slate-400 hover:text-red-400 bg-slate-700/50 rounded"><Trash2 size={14} /></button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )
+                            )
+                        ) : (
+                            // --- TRIPS LIST ---
+                            tripHistory.length === 0 ? (
+                                <div className="text-center py-8 text-slate-500 text-sm">لا توجد رحلات مسجلة</div>
+                            ) : (
+                                tripHistory.map(trip => (
+                                    <button
+                                        key={trip.id}
+                                        onClick={() => useMasariStore.getState().selectTrip(trip)}
+                                        className="w-full text-right bg-slate-700/30 p-2 rounded-lg hover:bg-slate-700/50 transition-colors border border-slate-700/50 group focus:ring-1 focus:ring-primary-500"
+                                    >
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className="text-sm font-medium text-white flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                رحلة {formatDate(trip.startTime)}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500">
+                                                {trip.endTime ? formatTime(Math.floor((trip.endTime - trip.startTime) / 1000)) : '--:--'}
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex gap-3 text-xs text-slate-400">
+                                                <span className="flex items-center gap-1"><Navigation size={10} /> {trip.distance.toFixed(2)} كم</span>
+                                                <span className="flex items-center gap-1"><MapPin size={10} /> {trip.points.length} نقطة</span>
+                                            </div>
+                                            <div onClick={(e) => { e.stopPropagation(); deleteTrip(trip.id); }} className="p-1 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                                <Trash2 size={14} />
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))
+                            )
+                        )}
+                    </div>
+                </div>
+
+                {/* Save Location Modal - Floating Window */}
+                {
+                    showSaveModal && createPortal(
+                        <div className="fixed top-24 left-0 right-0 z-[9999] flex justify-center pointer-events-none px-4">
+                            <div className="bg-slate-800/95 backdrop-blur-md rounded-xl border border-slate-600 shadow-2xl w-full max-w-sm p-4 pointer-events-auto max-h-[80vh] overflow-y-auto transition-all">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-bold text-white">
+                                        {editingLocation ? 'تعديل الموقع' : 'حفظ موقع جديد'}
+                                    </h3>
+                                    <button
+                                        onClick={() => {
+                                            setShowSaveModal(false);
+                                            setEditingLocation(null);
+                                            setLocationForm({
+                                                name: '',
+                                                category: 'parking',
+                                                icon: 'car',
+                                                notes: '',
+                                                photo: undefined
+                                            });
+                                        }}
+                                        className="text-slate-400 hover:text-white"
+                                    >
+                                        <X size={20} />
+                                    </button>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        نوع الموقع
-                                    </label>
-                                    <div className="grid grid-cols-3 gap-2 mb-2">
-                                        <button
-                                            onClick={() => setLocationForm({ ...locationForm, category: 'parking', icon: 'car' })}
-                                            className={`p-3 rounded-lg border-2 transition-colors ${locationForm.category === 'parking'
-                                                ? 'border-primary-500 bg-primary-500/20'
-                                                : 'border-slate-600 hover:border-slate-500'
-                                                }`}
-                                        >
-                                            <div className="text-2xl mb-1">🚗</div>
-                                            <div className="text-xs text-slate-300">موقف</div>
-                                        </button>
-                                        <button
-                                            onClick={() => setLocationForm({ ...locationForm, category: 'place', icon: 'pin' })}
-                                            className={`p-3 rounded-lg border-2 transition-colors ${locationForm.category === 'place'
-                                                ? 'border-primary-500 bg-primary-500/20'
-                                                : 'border-slate-600 hover:border-slate-500'
-                                                }`}
-                                        >
-                                            <div className="text-2xl mb-1">📍</div>
-                                            <div className="text-xs text-slate-300">موقع</div>
-                                        </button>
-                                        <button
-                                            onClick={() => setLocationForm({ ...locationForm, category: 'photo' })}
-                                            className={`p-3 rounded-lg border-2 transition-colors ${locationForm.category === 'photo'
-                                                ? 'border-primary-500 bg-primary-500/20'
-                                                : 'border-slate-600 hover:border-slate-500'
-                                                }`}
-                                        >
-                                            <div className="text-2xl mb-1">📷</div>
-                                            <div className="text-xs text-slate-300">صورة</div>
-                                        </button>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                                            اسم الموقع
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={locationForm.name}
+                                            onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
+                                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-primary-500"
+                                            placeholder="مثال: موقف السيارة"
+                                        />
                                     </div>
-                                </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        الأيقونة
-                                    </label>
-                                    <div className="grid grid-cols-5 gap-2">
-                                        {iconOptions.map(option => (
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                                            نوع الموقع
+                                        </label>
+                                        <div className="grid grid-cols-3 gap-2 mb-2">
                                             <button
-                                                key={option.value}
-                                                onClick={() => setLocationForm({ ...locationForm, icon: option.value as any })}
-                                                className={`p-3 rounded-lg border-2 transition-colors ${locationForm.icon === option.value
+                                                onClick={() => setLocationForm({ ...locationForm, category: 'parking', icon: 'car' })}
+                                                className={`p-3 rounded-lg border-2 transition-colors ${locationForm.category === 'parking'
                                                     ? 'border-primary-500 bg-primary-500/20'
                                                     : 'border-slate-600 hover:border-slate-500'
                                                     }`}
                                             >
-                                                <span className="text-2xl">{option.emoji}</span>
+                                                <div className="text-2xl mb-1">🚗</div>
+                                                <div className="text-xs text-slate-300">موقف</div>
                                             </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Photo Capture */}
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        إضافة صورة (اختياري)
-                                    </label>
-                                    <label className="w-full bg-slate-700 border-2 border-dashed border-slate-600 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-primary-500 transition-colors">
-                                        <Camera size={32} className="text-slate-400 mb-2" />
-                                        <span className="text-sm text-slate-400">
-                                            {locationForm.photo ? 'تغيير الصورة' : 'التقاط صورة'}
-                                        </span>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            capture="environment"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    const reader = new FileReader();
-                                                    reader.onloadend = () => {
-                                                        handlePhotoCapture(reader.result as string, 'صورة من المعرض');
-                                                    };
-                                                    reader.readAsDataURL(file);
-                                                }
-                                            }}
-                                            className="hidden"
-                                        />
-                                    </label>
-                                    {locationForm.photo && (
-                                        <div className="mt-2 relative">
-                                            <img
-                                                src={locationForm.photo}
-                                                alt="Preview"
-                                                className="w-full h-32 object-cover rounded-lg"
-                                            />
                                             <button
-                                                onClick={() => setLocationForm({ ...locationForm, photo: undefined })}
-                                                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                                                onClick={() => setLocationForm({ ...locationForm, category: 'place', icon: 'pin' })}
+                                                className={`p-3 rounded-lg border-2 transition-colors ${locationForm.category === 'place'
+                                                    ? 'border-primary-500 bg-primary-500/20'
+                                                    : 'border-slate-600 hover:border-slate-500'
+                                                    }`}
                                             >
-                                                <X size={16} />
+                                                <div className="text-2xl mb-1">📍</div>
+                                                <div className="text-xs text-slate-300">موقع</div>
+                                            </button>
+                                            <button
+                                                onClick={() => setLocationForm({ ...locationForm, category: 'photo' })}
+                                                className={`p-3 rounded-lg border-2 transition-colors ${locationForm.category === 'photo'
+                                                    ? 'border-primary-500 bg-primary-500/20'
+                                                    : 'border-slate-600 hover:border-slate-500'
+                                                    }`}
+                                            >
+                                                <div className="text-2xl mb-1">📷</div>
+                                                <div className="text-xs text-slate-300">صورة</div>
                                             </button>
                                         </div>
-                                    )}
-                                </div>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        ملاحظات (اختياري)
-                                    </label>
-                                    <textarea
-                                        value={locationForm.notes}
-                                        onChange={(e) => setLocationForm({ ...locationForm, notes: e.target.value })}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-primary-500 resize-none"
-                                        rows={3}
-                                        placeholder="أضف ملاحظات..."
-                                    />
-                                </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                                            الأيقونة
+                                        </label>
+                                        <div className="grid grid-cols-5 gap-2">
+                                            {iconOptions.map(option => (
+                                                <button
+                                                    key={option.value}
+                                                    onClick={() => setLocationForm({ ...locationForm, icon: option.value as any })}
+                                                    className={`p-3 rounded-lg border-2 transition-colors ${locationForm.icon === option.value
+                                                        ? 'border-primary-500 bg-primary-500/20'
+                                                        : 'border-slate-600 hover:border-slate-500'
+                                                        }`}
+                                                >
+                                                    <span className="text-2xl">{option.emoji}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                                <button
-                                    onClick={handleSaveLocation}
-                                    className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2 rounded-lg font-medium transition-colors"
-                                >
-                                    {editingLocation ? 'تحديث' : 'حفظ'}
-                                </button>
+                                    {/* Photo Capture */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                                            إضافة صورة (اختياري)
+                                        </label>
+                                        <label className="w-full bg-slate-700 border-2 border-dashed border-slate-600 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-primary-500 transition-colors">
+                                            <Camera size={32} className="text-slate-400 mb-2" />
+                                            <span className="text-sm text-slate-400">
+                                                {locationForm.photo ? 'تغيير الصورة' : 'التقاط صورة'}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                capture="environment"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            handlePhotoCapture(reader.result as string, 'صورة من المعرض');
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        {locationForm.photo && (
+                                            <div className="mt-2 relative">
+                                                <img
+                                                    src={locationForm.photo}
+                                                    alt="Preview"
+                                                    className="w-full h-32 object-cover rounded-lg"
+                                                />
+                                                <button
+                                                    onClick={() => setLocationForm({ ...locationForm, photo: undefined })}
+                                                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                                            ملاحظات (اختياري)
+                                        </label>
+                                        <textarea
+                                            value={locationForm.notes}
+                                            onChange={(e) => setLocationForm({ ...locationForm, notes: e.target.value })}
+                                            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:border-primary-500 resize-none"
+                                            rows={3}
+                                            placeholder="أضف ملاحظات..."
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={handleSaveLocation}
+                                        className="w-full bg-primary-500 hover:bg-primary-600 text-white py-2 rounded-lg font-medium transition-colors"
+                                    >
+                                        {editingLocation ? 'تحديث' : 'حفظ'}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    , document.body)
-            }
+                        </div>,
+                        document.body
+                    )
+                }
 
-            {/* Photo Capture Modal */}
-            <PhotoCaptureModal
-                isOpen={isPhotoCaptureOpen}
-                onClose={() => setIsPhotoCaptureOpen(false)}
-                onCapture={handlePhotoCapture}
-                currentLocation={currentLocation}
-                onRequestLocation={() => {
-                    // Update location when modal opens
-                    if ('geolocation' in navigator) {
-                        navigator.geolocation.getCurrentPosition(
-                            (position) => {
-                                updateLocation({
-                                    id: crypto.randomUUID(),
-                                    lat: position.coords.latitude,
-                                    lng: position.coords.longitude,
-                                    timestamp: Date.now(),
-                                    speed: position.coords.speed || 0,
-                                    heading: position.coords.heading || 0
-                                });
-                            },
-                            (error) => console.error('Error getting location:', error),
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                        );
-                    }
-                }}
-            />
-        </div >
+                {/* Photo Capture Modal */}
+                <PhotoCaptureModal
+                    isOpen={isPhotoCaptureOpen}
+                    onClose={() => setIsPhotoCaptureOpen(false)}
+                    onCapture={handlePhotoCapture}
+                    currentLocation={currentLocation}
+                    onRequestLocation={() => {
+                        // Update location when modal opens
+                        if ('geolocation' in navigator) {
+                            navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                    updateLocation({
+                                        id: Date.now().toString() + Math.random().toString(36).substring(2),
+                                        lat: position.coords.latitude,
+                                        lng: position.coords.longitude,
+                                        timestamp: Date.now(),
+                                        speed: position.coords.speed || 0,
+                                        heading: position.coords.heading || 0
+                                    });
+                                },
+                                (error) => console.error('Error getting location:', error),
+                                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                            );
+                        }
+                    }}
+                />
+            </div>
+        </div>
     );
 }

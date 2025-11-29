@@ -200,7 +200,7 @@ export default function PrayerTimes() {
     };
 
     return (
-        <div className="p-4 max-w-4xl mx-auto">
+        <div className="p-0 max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold mb-6 text-center">أوقات الصلاة</h1>
 
             {/* Calculation Method Selector */}

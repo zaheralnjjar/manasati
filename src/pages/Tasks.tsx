@@ -35,7 +35,7 @@ export default function Tasks() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [goals, setGoals] = useState<DevelopmentGoal[]>([]);
     const [viewMode, setViewMode] = useState<'tasks' | 'timeline' | 'stats'>('tasks');
-    const [taskFilter, setTaskFilter] = useState<'all' | 'tasks-only' | 'goals-only' | 'today' | 'week'>('all');
+    const [taskFilter] = useState<'all' | 'tasks-only' | 'goals-only' | 'today' | 'week'>('all');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showTypeSelector, setShowTypeSelector] = useState(false);
     const [addType, setAddType] = useState<'task' | 'goal'>('task');
@@ -311,7 +311,7 @@ END:VCALENDAR`;
             setGoals(updatedGoals);
         } else {
             const newGoal: DevelopmentGoal = {
-                id: crypto.randomUUID(),
+                id: Date.now().toString() + Math.random().toString(36).substring(2),
                 title: goalForm.title.trim(),
                 type: finalType,
                 link: goalForm.link.trim(),
@@ -445,7 +445,7 @@ END:VCALENDAR`;
     };
 
     return (
-        <div className="py-6 max-w-4xl mx-auto px-0 md:px-4">
+        <div className="p-0 max-w-4xl mx-auto pb-24 px-0">
             {/* Header & Stats */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
@@ -470,7 +470,7 @@ END:VCALENDAR`;
             </div>
 
             {/* Main View Tabs - 4 sections only */}
-            <div className="flex overflow-x-auto pb-2 mb-6 gap-2 no-scrollbar">
+            <div className="grid grid-cols-3 gap-2 mb-6">
                 {[
                     { id: 'tasks', label: 'المهام', icon: List },
                     { id: 'timeline', label: 'الجدول', icon: Clock },
@@ -479,13 +479,13 @@ END:VCALENDAR`;
                     <button
                         key={tab.id}
                         onClick={() => setViewMode(tab.id as any)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${viewMode === tab.id
+                        className={`flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-2 py-2 rounded-lg transition-colors ${viewMode === tab.id
                             ? 'bg-primary-500 text-white'
                             : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                             }`}
                     >
                         <tab.icon size={18} />
-                        <span>{tab.label}</span>
+                        <span className="text-xs md:text-sm">{tab.label}</span>
                     </button>
                 ))}
             </div>
@@ -505,31 +505,6 @@ END:VCALENDAR`;
                         </div>
                         <span className="font-medium">إضافة مهمة، فكرة، أو هدف جديد</span>
                     </button>
-
-                    {/* Internal Task Filters - Only in tasks view */}
-                    {viewMode === 'tasks' && (
-                        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
-                            {[
-                                { id: 'all', label: 'الكل', icon: List },
-                                { id: 'tasks-only', label: 'مهام', icon: Check },
-                                { id: 'goals-only', label: 'أهداف', icon: Target },
-                                { id: 'today', label: 'اليوم', icon: Calendar },
-                                { id: 'week', label: 'الأسبوع', icon: Layout },
-                            ].map(filter => (
-                                <button
-                                    key={filter.id}
-                                    onClick={() => setTaskFilter(filter.id as any)}
-                                    className={`flex-1 min-w-[80px] flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${taskFilter === filter.id
-                                        ? 'bg-slate-700 text-white border border-slate-600'
-                                        : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-                                        }`}
-                                >
-                                    <filter.icon size={16} />
-                                    <span>{filter.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </>
             )}
 
@@ -691,7 +666,7 @@ END:VCALENDAR`;
             {/* Add/Edit Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-slate-900 rounded-2xl w-full max-w-lg border border-slate-700 shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="bg-slate-900 rounded-2xl w-full max-w-lg border border-slate-700 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
 
                         {showTypeSelector ? (
                             // Type Selector View
@@ -735,13 +710,13 @@ END:VCALENDAR`;
                         ) : addType === 'task' ? (
                             // Task Form
                             <>
-                                <div className="flex justify-between items-center p-6 border-b border-slate-800">
+                                <div className="flex justify-between items-center p-4 border-b border-slate-800">
                                     <h3 className="text-xl font-bold">{editingTask ? 'تعديل المهمة' : 'إضافة مهمة جديدة'}</h3>
                                     <button onClick={closeModal} className="text-slate-400 hover:text-white">
                                         <X size={24} />
                                     </button>
                                 </div>
-                                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                                <div className="p-4 space-y-3 overflow-y-auto flex-1">
                                     <div>
                                         <label className="block text-sm text-slate-400 mb-1">العنوان</label>
                                         <input
@@ -754,7 +729,7 @@ END:VCALENDAR`;
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <label className="block text-sm text-slate-400 mb-1">النوع / القسم</label>
                                             <select
@@ -788,7 +763,7 @@ END:VCALENDAR`;
                                     </div>
 
                                     {newTask.section === 'appointment' && (
-                                        <div className="grid grid-cols-2 gap-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                                        <div className="grid grid-cols-2 gap-3 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
                                             <div>
                                                 <label className="block text-sm text-slate-400 mb-1">التاريخ</label>
                                                 <input
@@ -872,13 +847,13 @@ END:VCALENDAR`;
                                         <textarea
                                             value={newTask.notes}
                                             onChange={e => setNewTask({ ...newTask, notes: e.target.value })}
-                                            className="w-full bg-slate-800 rounded-lg px-4 py-2 h-24 resize-none"
+                                            className="w-full bg-slate-800 rounded-lg px-4 py-2 h-20 resize-none"
                                             placeholder="تفاصيل إضافية..."
                                         />
                                     </div>
                                 </div>
 
-                                <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
+                                <div className="p-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-900 rounded-b-2xl">
                                     <button
                                         onClick={closeModal}
                                         className="px-6 py-2 rounded-lg hover:bg-slate-800 transition-colors"

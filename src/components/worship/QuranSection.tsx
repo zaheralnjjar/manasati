@@ -31,7 +31,7 @@ export default function QuranSection() {
         const dailyTarget = quranForm.dailyVerses;
 
         const newGoal: QuranGoal = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             bookName: quranForm.scopeType === 'khatmah' ? 'ختمة كاملة' : quranForm.scopeValue,
             totalPages: quranForm.scopeType === 'khatmah' ? 604 : (quranForm.totalVerses || 0),
             currentPage: 0,
@@ -69,7 +69,7 @@ export default function QuranSection() {
         const dailyTarget = Math.ceil(totalPages / durationDays);
 
         const newGoal: BookGoal = {
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             title: bookForm.title,
             totalPages,
             currentPage: 0,

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Video, GraduationCap, Repeat, Plus, Trash2, ExternalLink, CheckCircle, Circle } from 'lucide-react';
-import { storage } from '../utils/storage';
+import { useDevelopmentStore } from '../store/useDevelopmentStore';
 import type { DevelopmentGoal, Task } from '../types';
 
 export default function Development() {
-    const [goals, setGoals] = useState<DevelopmentGoal[]>([]);
+    const { goals, addGoal, toggleStatus, deleteGoal, initialize } = useDevelopmentStore();
     const [showForm, setShowForm] = useState(false);
 
     // Form State
@@ -14,64 +14,28 @@ export default function Development() {
     const [frequency, setFrequency] = useState<DevelopmentGoal['frequency']>('once');
 
     useEffect(() => {
-        const savedGoals = storage.get<DevelopmentGoal[]>('developmentGoals') || [];
-        setGoals(savedGoals);
+        initialize();
     }, []);
 
-    useEffect(() => {
-        storage.set('developmentGoals', goals);
-    }, [goals]);
+    const handleAddGoal = () => {
+        if (!title.trim()) {
+            alert('الرجاء إدخال عنوان الهدف');
+            return;
+        }
 
-    const addGoal = () => {
-        if (!title.trim()) return;
-
-        const newGoal: DevelopmentGoal = {
-            id: crypto.randomUUID(),
+        addGoal({
             title: title.trim(),
             type,
             link: link.trim(),
-            frequency,
-            status: 'active',
-            createdAt: new Date().toISOString()
-        };
+            frequency
+        });
 
-        const updatedGoals = [...goals, newGoal];
-        setGoals(updatedGoals);
-
-        // Sync to Tasks if it's a "once" goal or "daily" habit
-        if (frequency === 'once' || frequency === 'daily') {
-            const tasks = storage.get<Task[]>('tasks') || [];
-            const newTask: Task = {
-                id: crypto.randomUUID(),
-                title: `${type === 'book' ? 'قراءة' : type === 'video' ? 'مشاهدة' : 'إنجاز'}: ${title}`,
-                completed: false,
-                date: new Date().toISOString(),
-                priority: 'medium',
-                section: 'self-dev',
-                recurrence: { type: 'none' }
-            };
-            storage.set('tasks', [...tasks, newTask]);
-            alert('تمت إضافة الهدف وإدراجه في قائمة المهام!');
-        } else {
-            alert('تمت إضافة الهدف!');
-        }
+        alert('تم حفظ الهدف بنجاح!');
 
         // Reset form
         setTitle('');
         setLink('');
         setShowForm(false);
-    };
-
-    const toggleStatus = (id: string) => {
-        setGoals(goals.map(g =>
-            g.id === id ? { ...g, status: g.status === 'active' ? 'completed' : 'active' } : g
-        ));
-    };
-
-    const deleteGoal = (id: string) => {
-        if (confirm('هل أنت متأكد من حذف هذا الهدف؟')) {
-            setGoals(goals.filter(g => g.id !== id));
-        }
     };
 
     const getTypeIcon = (type: string) => {
@@ -85,7 +49,7 @@ export default function Development() {
     };
 
     return (
-        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24">
+        <div className="p-0 max-w-4xl mx-auto pb-24">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <GraduationCap className="text-primary-500" />
@@ -152,7 +116,7 @@ export default function Development() {
                         </div>
                     </div>
                     <button
-                        onClick={addGoal}
+                        onClick={handleAddGoal}
                         className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold"
                     >
                         حفظ الهدف

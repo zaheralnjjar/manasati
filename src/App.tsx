@@ -7,6 +7,7 @@ import Budget from './pages/Budget';
 import Worship from './pages/Worship';
 import Settings from './pages/Settings';
 import Masari from './pages/Masari';
+import Development from './pages/Development';
 import ErrorBoundary from './components/ErrorBoundary';
 import ConfirmDialogProvider from './components/ConfirmDialogProvider';
 import VoiceAssistant from './components/voice/VoiceAssistant';
@@ -50,10 +51,27 @@ function App() {
   useEffect(() => {
     if (!navigator.geolocation) return;
 
+    // Get initial position immediately
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        updateLocation({
+          id: Date.now().toString() + Math.random().toString(36).substring(2),
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          timestamp: position.timestamp,
+          speed: position.coords.speed || 0,
+          heading: position.coords.heading || 0,
+          accuracy: position.coords.accuracy
+        });
+      },
+      (error) => console.error('Error getting initial position:', error),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+    );
+
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         updateLocation({
-          id: crypto.randomUUID(),
+          id: Date.now().toString() + Math.random().toString(36).substring(2),
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           timestamp: position.timestamp,
@@ -99,6 +117,8 @@ function App() {
         return <Worship />;
       case 'masari':
         return <Masari />;
+      case 'development':
+        return <Development />;
       default:
         return <Dashboard onNavigate={setCurrentPage} />;
     }

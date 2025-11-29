@@ -104,7 +104,7 @@ export default function DashboardMapWidget() {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     updateLocation({
-                        id: crypto.randomUUID(),
+                        id: Date.now().toString() + Math.random().toString(36).substring(2),
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                         timestamp: Date.now(),
@@ -220,7 +220,7 @@ export default function DashboardMapWidget() {
                         navigator.geolocation.getCurrentPosition(
                             (position) => {
                                 updateLocation({
-                                    id: crypto.randomUUID(),
+                                    id: Date.now().toString() + Math.random().toString(36).substring(2),
                                     lat: position.coords.latitude,
                                     lng: position.coords.longitude,
                                     timestamp: Date.now(),

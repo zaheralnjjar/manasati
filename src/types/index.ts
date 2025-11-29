@@ -144,10 +144,11 @@ export interface ShoppingCategoryExtended {
 export interface ShoppingItem {
     id: string;
     name: string;
-    category: ShoppingCategory | string; // Allow custom categories
+    category: string;
+    addedDate: string;
     purchased: boolean;
     completed?: boolean; // Alias for purchased
-    addedDate: string;
+    priority?: 'urgent' | 'medium' | 'low';
 }
 
 export interface Recipe {

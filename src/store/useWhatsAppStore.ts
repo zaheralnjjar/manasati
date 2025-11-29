@@ -23,7 +23,7 @@ export const useWhatsAppStore = create<WhatsAppState>((set, get) => ({
     addContact: async (contactData) => {
         const newContact: WhatsAppContact = {
             ...contactData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
             addedAt: Date.now()
         };
 

@@ -28,7 +28,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     addIncome: async (incomeData) => {
         const income: Income = {
             ...incomeData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().incomes, income];
         set({ incomes: updated });
@@ -44,7 +44,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
     addExpense: async (expenseData) => {
         const expense: Expense = {
             ...expenseData,
-            id: crypto.randomUUID(),
+            id: Date.now().toString() + Math.random().toString(36).substring(2),
         };
         const updated = [...get().expenses, expense];
         set({ expenses: updated });
