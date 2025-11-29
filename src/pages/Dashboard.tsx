@@ -1,18 +1,29 @@
-// Dashboard Component
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    MapPin, Wallet, CheckSquare, ShoppingCart, Target, ArrowLeft,
-    Calendar, ArrowRight, Settings, ChevronUp, ChevronDown, Clock
+    Settings,
+    MapPin,
+    Wallet,
+    BookOpen,
+    LogOut,
+    User,
+    ChevronDown,
+    ChevronUp,
+    ArrowLeft,
+    Target,
+    ShoppingCart,
+    CheckSquare
 } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
 import { useProductivityStore } from '../store/useProductivityStore';
 import { useFinanceStore } from '../store/useFinanceStore';
-import { useDevelopmentStore } from '../store/useDevelopmentStore';
 import { useLifestyleStore } from '../store/useLifestyleStore';
 import { useMasariStore } from '../store/useMasariStore';
-import DashboardTicker from '../components/DashboardTicker';
+import { useDevelopmentStore } from '../store/useDevelopmentStore';
+import { useAppStore } from '../store/useAppStore';
 import RecentActivity from '../components/dashboard/RecentActivity';
+import QuickLogin from '../components/auth/QuickLogin';
+import DashboardTicker from '../components/DashboardTicker';
 import DashboardMapWidget from '../components/dashboard/DashboardMapWidget';
+import { supabase } from '../services/supabase';
 import { usePrayerSync } from '../hooks/usePrayerSync';
 import type { PrayerTime } from '../types';
 import type { PageType } from '../store/useAppStore';
@@ -83,14 +94,20 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         return dueDate >= today && dueDate < tomorrow && !t.completed;
     });
 
+    const todayAppointments = appointments.filter(a => {
+        const apptDate = new Date(a.date);
+        return apptDate >= today && apptDate < tomorrow;
+    });
+
     const activeReading = developmentGoals.find(g => g.status === 'active');
     const readingGoals = developmentGoals.filter(g => g.type === 'book' && g.status === 'active');
 
-
     // Collapsible State
     const [isTasksExpanded, setIsTasksExpanded] = useState(false);
+    const [isAppointmentsExpanded, setIsAppointmentsExpanded] = useState(true);
     const [isFinanceExpanded, setIsFinanceExpanded] = useState(false);
     const [isDevExpanded, setIsDevExpanded] = useState(false);
+    const [showLoginDropdown, setShowLoginDropdown] = useState(false);
 
     // Greeting based on time
     const hour = new Date().getHours();
@@ -115,8 +132,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         }
 
         // Convert PrayerTimeResult[] to PrayerTime object for ICS generation
+        // Note: 'format' and 'isPast' are not defined in this snippet.
+        // Assuming 'PrayerTime' type is defined elsewhere or globally available.
         const todayPrayerTime: PrayerTime = {
-            date: new Date().toISOString().split('T')[0],
+            date: new Date().toISOString().split('T')[0], // Keeping original date format for consistency, as 'format' is not imported.
             fajr: prayers.find(p => p.name === 'fajr')?.time || '',
             sunrise: prayers.find(p => p.name === 'sunrise')?.time || '',
             dhuhr: prayers.find(p => p.name === 'dhuhr')?.time || '',
@@ -138,7 +157,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         );
 
         if (icsContent) {
-            downloadICS(icsContent, `my-calendar-${new Date().toISOString().split('T')[0]}.ics`);
+            downloadICS(icsContent, `my - calendar - ${new Date().toISOString().split('T')[0]}.ics`);
             setShowExportModal(false);
         } else {
             alert('حدث خطأ أثناء إنشاء ملف التقويم');
@@ -156,13 +175,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.lat}&lon=${currentLocation.lng}&accept-language=ar`);
                 const data = await response.json();
                 if (data.address) {
-                    const { road, house_number, suburb, neighbourhood, city } = data.address;
-                    // Construct address: Street + Number (if available) or Suburb/City
+                    const { road, pedestrian, house_number, suburb, neighbourhood, city, town, village } = data.address;
+
+                    // Prioritize: Street Name + Number
+                    const street = road || pedestrian;
+                    const number = house_number;
+                    const area = suburb || neighbourhood || city || town || village;
+
                     const parts = [];
-                    if (road) parts.push(road);
-                    if (house_number) parts.push(house_number);
-                    if (!road && (suburb || neighbourhood)) parts.push(suburb || neighbourhood);
-                    if (!road && !suburb && !neighbourhood && city) parts.push(city);
+                    if (street) parts.push(street);
+                    if (number) parts.push(number);
+
+                    // If no street, use area
+                    if (!street && area) parts.push(area);
 
                     setCurrentAddress(parts.join(' ') || 'موقع غير معروف');
                 }
@@ -183,9 +208,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 <div className="flex justify-between items-start gap-2 mb-1 md:mb-6">
                     {/* Right Side: Greeting + Date */}
                     <div className="flex-1">
-                        <h1 className="text-lg md:text-3xl font-bold text-white mb-0">
-                            {greeting}, {user?.name || 'مرحباً بك'} 👋
+                        <h1 className="text-lg md:text-3xl font-bold text-white mb-1">
+                            {greeting}
                         </h1>
+                        <p className="text-base md:text-xl text-slate-200 font-medium mb-2">
+                            مرحبا بك يا {user?.name || 'ضيف'}
+                        </p>
                         <p className="text-slate-400 text-[10px] md:text-base flex items-center gap-2">
                             <span>{new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', calendar: 'gregory' })}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-600"></span>
@@ -203,18 +231,61 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
                     {/* Left Side: Location + Settings Icon */}
                     <div className="flex flex-col items-end gap-1">
-                        <div className="text-xs md:text-sm text-slate-400 flex items-center gap-1">
-                            <span className="truncate max-w-[150px] md:max-w-xs" dir="rtl">
-                                {currentAddress || (currentLocation ? `${currentLocation.lat.toFixed(2)}, ${currentLocation.lng.toFixed(2)}` : 'جاري تحديد الموقع...')}
-                            </span>
-                            <MapPin size={14} className="text-primary-400" />
+                        <div className="flex items-center gap-2">
+                            <div className="text-xs md:text-sm text-slate-400 flex items-center gap-1">
+                                <span className="truncate max-w-[150px] md:max-w-xs" dir="rtl">
+                                    {currentAddress || (currentLocation ? `${currentLocation.lat.toFixed(2)}, ${currentLocation.lng.toFixed(2)}` : 'جاري تحديد الموقع...')}
+                                </span>
+                                <MapPin size={14} className="text-primary-400" />
+                            </div>
+
+                            {/* User/Guest Profile & Settings */}
+                            <div className="flex items-center gap-2 mr-2 relative">
+                                <button
+                                    onClick={() => onNavigate('settings')}
+                                    className="p-1.5 bg-slate-800 rounded-xl text-slate-400 hover:text-white border border-slate-700 hover:border-primary-500 transition-all"
+                                    title="الإعدادات"
+                                >
+                                    <Settings size={16} />
+                                </button>
+
+                                <div
+                                    className="flex items-center gap-2 bg-slate-800 rounded-xl p-1 pr-3 border border-slate-700 cursor-pointer hover:border-primary-500/50 transition-colors"
+                                    onClick={() => setShowLoginDropdown(!showLoginDropdown)}
+                                >
+                                    <div className="text-xs text-slate-300 font-medium">
+                                        {user?.email ? 'مستخدم' : 'تسجيل الدخول'}
+                                    </div>
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${user?.email ? 'bg-primary-500/20 text-primary-400' : 'bg-slate-700 text-slate-400'}`}>
+                                        {user?.email ? <div className="w-2 h-2 rounded-full bg-primary-500"></div> : <div className="w-2 h-2 rounded-full bg-slate-500"></div>}
+                                    </div>
+                                </div>
+
+                                {/* Quick Login / User Menu Dropdown */}
+                                {showLoginDropdown && (
+                                    user?.email ? (
+                                        <div className="absolute top-full left-0 mt-2 w-48 bg-slate-800/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="px-2 py-1.5 border-b border-slate-700/50 mb-1">
+                                                <p className="text-[10px] text-slate-400">مسجل الدخول كـ</p>
+                                                <p className="text-xs text-white font-medium truncate">{user.email}</p>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    await import('../services/supabase').then(m => m.supabase.auth.signOut());
+                                                    setShowLoginDropdown(false);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                            >
+                                                <LogOut size={14} />
+                                                <span>تسجيل الخروج</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <QuickLogin onClose={() => setShowLoginDropdown(false)} />
+                                    )
+                                )}
+                            </div>
                         </div>
-                        <button
-                            onClick={() => onNavigate('settings')}
-                            className="p-1.5 bg-slate-800 rounded-xl text-slate-400 hover:text-white border border-slate-700 hover:border-primary-500 transition-all"
-                        >
-                            <Settings size={16} />
-                        </button>
                     </div>
                 </div>
 
@@ -278,143 +349,99 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         </section>
                     )}
 
-                    {/* 2. Recent Activity Feed (Collapsible) */}
-                    <RecentActivity />
+                    {/* 2. Main Grid: Recent Activity, Finance, Development */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
 
-                    {/* 3. Collapsible Sections: Tasks, Finance, Development */}
-                    {/* Tasks Summary */}
-                    <div className="bg-slate-800/50 rounded-xl p-2 md:p-6 border border-slate-700/50">
-                        <div
-                            className="flex justify-between items-center mb-2 cursor-pointer"
-                            onClick={() => setIsTasksExpanded(!isTasksExpanded)}
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-blue-500/10 rounded-lg text-blue-400">
-                                    <CheckSquare size={16} />
-                                </div>
-                                <h2 className="text-sm md:text-lg font-bold text-white">مهام اليوم</h2>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-400">{todayTasks.length} مهام</span>
-                                {isTasksExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                            </div>
+                        {/* Recent Activity */}
+                        <div className="md:col-span-1 h-full">
+                            <RecentActivity />
                         </div>
 
-                        {isTasksExpanded && (
-                            <div className="space-y-2">
-                                {todayTasks.length > 0 ? (
-                                    todayTasks.slice(0, 3).map(task => (
-                                        <div key={task.id} className="flex items-center gap-2 p-2 bg-slate-700/30 rounded-lg border border-slate-700/30">
-                                            <div className={`w-1 h-8 rounded-full ${task.completed ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                                            <div className="flex-1">
-                                                <p className={`text-xs md:text-sm font-medium ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
-                                                    {task.title}
-                                                </p>
-                                                {task.time && (
-                                                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                        <Clock size={10} />
-                                                        {task.time}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-center text-slate-500 py-2 text-xs">لا يوجد مهام لليوم</p>
+                        {/* Finance Summary */}
+                        <div className="bg-slate-800 rounded-2xl p-2 md:p-4 border border-slate-700/50 flex flex-col h-full">
+                            <div
+                                className="flex justify-between items-center mb-2 cursor-pointer"
+                                onClick={() => setIsFinanceExpanded(!isFinanceExpanded)}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-green-500/10 rounded-lg text-green-400">
+                                        <Wallet size={16} />
+                                    </div>
+                                    <h2 className="text-sm md:text-lg font-bold text-white">المالية</h2>
+                                </div>
+                                {isFinanceExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                            </div>
+
+                            <div className={`space-y-2 ${isFinanceExpanded ? '' : 'flex-1'}`}>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-slate-700/30 p-2 rounded-xl border border-slate-700/30">
+                                        <p className="text-slate-400 text-[10px] mb-1">المصروفات</p>
+                                        <p className="text-sm font-bold text-white font-mono">
+                                            {budget.totalExpenses.toLocaleString()} <span className="text-[10px] text-green-500">$</span>
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-700/30 p-2 rounded-xl border border-slate-700/30">
+                                        <p className="text-slate-400 text-[10px] mb-1">الرصيد</p>
+                                        <p className="text-sm font-bold text-white font-mono">
+                                            {budget.currentBalance.toLocaleString()} <span className="text-[10px] text-green-500">$</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                {isFinanceExpanded && (
+                                    <button
+                                        onClick={() => onNavigate('budget')}
+                                        className="w-full py-1.5 text-xs text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-lg transition-colors flex items-center justify-center gap-1 mt-2"
+                                    >
+                                        <span>تفاصيل الميزانية</span>
+                                        <ArrowLeft size={12} />
+                                    </button>
                                 )}
-                                <button
-                                    onClick={() => onNavigate('tasks')}
-                                    className="w-full py-1.5 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center justify-center gap-1"
-                                >
-                                    <span>عرض كل المهام</span>
-                                    <ArrowLeft size={12} />
-                                </button>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Finance Summary */}
-                    <div className="bg-slate-800/50 rounded-xl p-2 md:p-6 border border-slate-700/50">
-                        <div
-                            className="flex justify-between items-center mb-2 cursor-pointer"
-                            onClick={() => setIsFinanceExpanded(!isFinanceExpanded)}
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-green-500/10 rounded-lg text-green-400">
-                                    <Wallet size={16} />
-                                </div>
-                                <h2 className="text-sm md:text-lg font-bold text-white">المالية</h2>
-                            </div>
-                            {isFinanceExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </div>
 
-                        {isFinanceExpanded && (
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-slate-700/30 p-2 rounded-xl border border-slate-700/30">
-                                    <p className="text-slate-400 text-[10px] mb-1">المصروفات (هذا الشهر)</p>
-                                    <p className="text-sm md:text-xl font-bold text-white font-mono">
-                                        {budget.totalExpenses.toLocaleString()} <span className="text-[10px] text-green-500">$</span>
-                                    </p>
+                        {/* Development Summary */}
+                        <div className="bg-slate-800 rounded-2xl p-2 md:p-4 border border-slate-700/50 flex flex-col h-full">
+                            <div
+                                className="flex justify-between items-center mb-2 cursor-pointer"
+                                onClick={() => setIsDevExpanded(!isDevExpanded)}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-yellow-500/10 rounded-lg text-yellow-400">
+                                        <Target size={16} />
+                                    </div>
+                                    <h2 className="text-sm md:text-lg font-bold text-white">تطوير الذات</h2>
                                 </div>
-                                <div className="bg-slate-700/30 p-2 rounded-xl border border-slate-700/30">
-                                    <p className="text-slate-400 text-[10px] mb-1">الرصيد الحالي</p>
-                                    <p className="text-sm md:text-xl font-bold text-white font-mono">
-                                        {budget.currentBalance.toLocaleString()} <span className="text-[10px] text-green-500">$</span>
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => onNavigate('budget')}
-                                    className="col-span-2 py-1.5 text-xs text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-lg transition-colors flex items-center justify-center gap-1"
-                                >
-                                    <span>تفاصيل الميزانية</span>
-                                    <ArrowLeft size={12} />
-                                </button>
+                                {isDevExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                             </div>
-                        )}
-                    </div>
 
-                    {/* Development Summary */}
-                    <div className="bg-slate-800/50 rounded-xl p-2 md:p-6 border border-slate-700/50">
-                        <div
-                            className="flex justify-between items-center mb-2 cursor-pointer"
-                            onClick={() => setIsDevExpanded(!isDevExpanded)}
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-yellow-500/10 rounded-lg text-yellow-400">
-                                    <Target size={16} />
-                                </div>
-                                <h2 className="text-sm md:text-lg font-bold text-white">تطوير الذات</h2>
-                            </div>
-                            {isDevExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-                        </div>
-
-                        {isDevExpanded && (
-                            <div className="space-y-2">
+                            <div className={`space-y-2 ${isDevExpanded ? '' : 'flex-1'}`}>
                                 {readingGoals.length > 0 ? (
                                     <div className="bg-slate-700/30 p-2 rounded-xl border border-slate-700/30">
                                         <div className="flex justify-between items-center mb-1">
-                                            <span className="text-xs text-white">{readingGoals[0].bookName}</span>
-                                            <span className="text-[10px] text-slate-400">{readingGoals[0].currentPage}/{readingGoals[0].totalPages}</span>
+                                            <span className="text-xs text-white truncate max-w-[120px]">{readingGoals[0].bookName}</span>
+                                            <span className="text-[10px] text-slate-400">{readingGoals[0].currentPage || 0}/{readingGoals[0].totalPages || 0}</span>
                                         </div>
                                         <div className="w-full bg-slate-700 rounded-full h-1.5">
                                             <div
                                                 className="bg-yellow-500 h-1.5 rounded-full transition-all"
-                                                style={{ width: `${Math.min(100, (readingGoals[0].currentPage / readingGoals[0].totalPages) * 100)}%` }}
+                                                style={{ width: `${Math.min(100, ((readingGoals[0].currentPage || 0) / (readingGoals[0].totalPages || 1)) * 100)}%` }}
                                             ></div>
                                         </div>
                                     </div>
                                 ) : (
                                     <p className="text-center text-slate-500 py-2 text-xs">لا يوجد أهداف حالية</p>
                                 )}
-                                <button
-                                    onClick={() => onNavigate('development')}
-                                    className="w-full py-1.5 text-xs text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 rounded-lg transition-colors flex items-center justify-center gap-1"
-                                >
-                                    <span>خطتي التطويرية</span>
-                                    <ArrowLeft size={12} />
-                                </button>
+                                {isDevExpanded && (
+                                    <button
+                                        onClick={() => onNavigate('development')}
+                                        className="w-full py-1.5 text-xs text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 rounded-lg transition-colors flex items-center justify-center gap-1 mt-2"
+                                    >
+                                        <span>خطتي التطويرية</span>
+                                        <ArrowLeft size={12} />
+                                    </button>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
 
                     {/* 4. Quick Actions Grid (2x2) */}

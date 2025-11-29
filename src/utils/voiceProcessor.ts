@@ -52,6 +52,20 @@ export const processVoiceCommand = (transcript: string): VoiceIntent => {
 
     // --- Extraction Logic ---
 
+    // Summary keywords
+    const summaryKeywords = [
+        'ملخص', 'تقرير', 'أخبرني عن', 'ماذا لدي', 'وضع', // Arabic
+        'resumen', 'reporte', 'dime sobre', 'qué tengo', 'estado' // Spanish
+    ];
+
+    // Location keywords
+    const locationKeywords = [
+        'احفظ موقعي', 'مكاني', 'هنا', 'موقع', 'خريطة', // Arabic
+        'guardar ubicación', 'mi ubicación', 'aquí', 'mapa' // Spanish
+    ];
+
+    // --- Extraction Logic ---
+
     // 1. Extract Time
     // Matches: "at 5:30", "الساعة 5", "5 pm", "a las 5"
     const timeRegex = /(?:الساعة|في|at|a las)?\s*(\d{1,2}:\d{2})|(?:الساعة|في|at|a las)?\s*(\d{1,2})\s*(صباحا|مساء|ص|م|am|pm)?/i;
@@ -124,10 +138,14 @@ export const processVoiceCommand = (transcript: string): VoiceIntent => {
     const action = deleteKeywords.some(keyword => lowerTranscript.includes(keyword)) ? 'delete' : 'add';
 
     // Determine intent type
-    let type: IntentType = 'unknown';
+    let type: IntentType | 'summary' | 'location' = 'unknown';
 
     if (questionKeywords.some(keyword => lowerTranscript.includes(keyword))) {
         type = 'question';
+    } else if (summaryKeywords.some(keyword => lowerTranscript.includes(keyword))) {
+        type = 'summary';
+    } else if (locationKeywords.some(keyword => lowerTranscript.includes(keyword))) {
+        type = 'location';
     } else if (goalKeywords.some(keyword => lowerTranscript.includes(keyword))) {
         type = 'goal';
     } else if (incomeKeywords.some(keyword => lowerTranscript.includes(keyword))) {
@@ -184,7 +202,7 @@ export const processVoiceCommand = (transcript: string): VoiceIntent => {
     cleanTranscript = cleanTranscript.replace(/\s+(ال|the)\s*$/i, '');
 
     return {
-        type,
+        type: type as IntentType, // Cast back to IntentType (need to update type definition separately)
         action,
         content: cleanTranscript.trim(),
         date,

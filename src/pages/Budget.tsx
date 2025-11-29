@@ -497,19 +497,31 @@ export default function Budget() {
                         تسجيل مصروف جديد
                     </h3>
 
-                    {/* Savings Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer bg-slate-700/50 px-3 py-1.5 rounded-lg border border-slate-600 hover:bg-slate-700 transition-colors">
-                        <input
-                            type="checkbox"
-                            checked={type === 'savings'}
-                            onChange={(e) => setType(e.target.checked ? 'savings' : 'expense')}
-                            className="w-4 h-4 rounded border-slate-500 text-purple-600 focus:ring-purple-500"
-                        />
-                        <span className={`text-sm font-medium ${type === 'savings' ? 'text-purple-400' : 'text-slate-400'}`}>
-                            تحويل لادخار؟
-                        </span>
-                        {type === 'savings' && <PiggyBank size={16} className="text-purple-400" />}
-                    </label>
+                    <div className="flex items-center gap-3">
+                        {/* Savings Toggle */}
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-700/50 px-3 py-1.5 rounded-lg border border-slate-600 hover:bg-slate-700 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={type === 'savings'}
+                                onChange={(e) => setType(e.target.checked ? 'savings' : 'expense')}
+                                className="w-4 h-4 rounded border-slate-500 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className={`text-sm font-medium ${type === 'savings' ? 'text-purple-400' : 'text-slate-400'}`}>
+                                ادخار
+                            </span>
+                        </label>
+
+                        <button
+                            onClick={addTransaction}
+                            className={`px-4 py-1.5 rounded-lg font-bold flex items-center gap-2 transition-colors text-sm ${type === 'savings'
+                                ? 'bg-purple-600 hover:bg-purple-700'
+                                : 'bg-red-600 hover:bg-red-700'
+                                } text-white shadow-lg shadow-red-900/20`}
+                        >
+                            <Plus size={16} />
+                            <span>حفظ</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="space-y-3">
@@ -569,19 +581,6 @@ export default function Budget() {
                         placeholder="وصف العملية (اختياري)"
                         className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
-
-                    <button
-                        onClick={addTransaction}
-                        className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${type === 'savings'
-                            ? 'bg-purple-600 hover:bg-purple-700'
-                            : 'bg-red-600 hover:bg-red-700'
-                            } text-white`}
-                    >
-                        <Plus size={20} />
-                        <span>
-                            {type === 'savings' ? 'إضافة للمدخرات' : 'تسجيل المصروف'}
-                        </span>
-                    </button>
                 </div>
             </div>
 

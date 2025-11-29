@@ -1,14 +1,25 @@
-import { processVoiceCommand } from './src/utils/voiceProcessor.ts';
 
-const phrases = [
-    "موعد بتاريخ غدا 6:00",
-    "موعد غدا الساعة 6",
-    "تذكير شراء حليب",
-    "اجتماع يوم الاحد القادم الساعة 5 مساء"
-];
+import { createClient } from '@supabase/supabase-js';
 
-phrases.forEach(phrase => {
-    console.log(`--- Testing: "${phrase}" ---`);
-    const result = processVoiceCommand(phrase);
-    console.log(JSON.stringify(result, null, 2));
-});
+const supabaseUrl = '';
+const supabaseAnonKey = '';
+
+console.log('Initializing Supabase client with empty credentials...');
+try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('Client initialized.');
+
+    console.log('Attempting to get session...');
+    supabase.auth.getSession().then(({ data, error }) => {
+        if (error) {
+            console.error('Error getting session:', error);
+        } else {
+            console.log('Session retrieved:', data);
+        }
+    }).catch(err => {
+        console.error('Exception getting session:', err);
+    });
+
+} catch (err) {
+    console.error('Exception initializing client:', err);
+}

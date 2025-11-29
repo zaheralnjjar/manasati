@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from '../services/supabase';
 import type { SavedLocation } from '../types';
 export type { SavedLocation };
 
@@ -56,16 +57,17 @@ interface MasariState {
         icon?: SavedLocation['icon'],
         notes?: string,
         photo?: string
-    ) => void;
+    ) => Promise<void>;
     saveLocationFromCoords: (
         lat: number,
         lng: number,
         address?: string,
         category?: SavedLocation['category']
-    ) => void;
-    addSavedLocation: (location: Omit<SavedLocation, 'id' | 'savedAt'>) => void;
-    updateSavedLocation: (id: string, updates: Partial<SavedLocation>) => void;
-    deleteSavedLocation: (id: string) => void;
+    ) => Promise<void>;
+    addSavedLocation: (location: Omit<SavedLocation, 'id' | 'savedAt'>) => Promise<void>;
+    updateSavedLocation: (id: string, updates: Partial<SavedLocation>) => Promise<void>;
+    deleteSavedLocation: (id: string) => Promise<void>;
+    initialize: () => Promise<void>;
 }
 
 export const useMasariStore = create<MasariState>()(
@@ -159,76 +161,229 @@ export const useMasariStore = create<MasariState>()(
             },
 
             // Saved Locations Actions
-            saveCurrentLocation: (name, category, icon = 'pin', notes = '', photo) => {
-                const { currentLocation, savedLocations } = get();
-                if (!currentLocation) return;
+            saveCurrentLocation: async (name, category, icon = 'pin', notes = '', photo) => {
+                try {
+                    const { currentLocation, savedLocations } = get();
+                    if (!currentLocation) return;
 
-                const newLocation: SavedLocation = {
-                    id: Date.now().toString() + Math.random().toString(36).substring(2),
-                    name,
-                    lat: currentLocation.lat,
-                    lng: currentLocation.lng,
-                    category,
-                    icon,
-                    photo,
-                    notes,
-                    savedAt: Date.now()
-                };
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
 
-                set({ savedLocations: [...savedLocations, newLocation] });
-            },
+                    const newLocation = {
+                        user_id: user.id,
+                        name,
+                        lat: currentLocation.lat,
+                        lng: currentLocation.lng,
+                        category,
+                        icon,
+                        photo,
+                        notes,
+                        saved_at: new Date().toISOString()
+                    };
 
-            saveLocationFromCoords: (lat, lng, address = '', category = 'place') => {
-                const { savedLocations } = get();
+                    const { data, error } = await supabase
+                        .from('saved_locations')
+                        .insert(newLocation)
+                        .select()
+                        .single();
 
-                // Generate dynamic name from address or coordinates
-                const generateName = () => {
-                    if (address) {
-                        // Extract meaningful part from address (first part before comma)
-                        const parts = address.split(',');
-                        return parts[0].trim() || `موقع ${savedLocations.length + 1}`;
+                    if (error) throw error;
+
+                    if (data) {
+                        const saved: SavedLocation = {
+                            id: data.id,
+                            name: data.name,
+                            lat: data.lat,
+                            lng: data.lng,
+                            category: data.category,
+                            icon: data.icon,
+                            photo: data.photo,
+                            notes: data.notes,
+                            savedAt: new Date(data.saved_at).getTime()
+                        };
+                        set({ savedLocations: [...savedLocations, saved] });
                     }
-                    return `موقع ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-                };
-
-                const newLocation: SavedLocation = {
-                    id: Date.now().toString() + Math.random().toString(36).substring(2),
-                    name: generateName(),
-                    lat,
-                    lng,
-                    category,
-                    icon: category === 'parking' ? 'car' : 'pin',
-                    address,
-                    savedAt: Date.now()
-                };
-
-                set({ savedLocations: [...savedLocations, newLocation] });
+                } catch (error) {
+                    console.error('Error saving current location:', error);
+                }
             },
 
-            addSavedLocation: (location) => {
-                const newLocation: SavedLocation = {
-                    ...location,
-                    id: Date.now().toString() + Math.random().toString(36).substring(2),
-                    savedAt: Date.now()
-                };
+            saveLocationFromCoords: async (lat, lng, address = '', category = 'place') => {
+                try {
+                    const { savedLocations } = get();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
 
-                set(state => ({
-                    savedLocations: [...state.savedLocations, newLocation]
-                }));
+                    // Generate dynamic name from address or coordinates
+                    const generateName = () => {
+                        if (address) {
+                            const parts = address.split(',');
+                            return parts[0].trim() || `موقع ${savedLocations.length + 1}`;
+                        }
+                        return `موقع ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    };
+
+                    const newLocation = {
+                        user_id: user.id,
+                        name: generateName(),
+                        lat,
+                        lng,
+                        category,
+                        icon: category === 'parking' ? 'car' : 'pin',
+                        address,
+                        saved_at: new Date().toISOString()
+                    };
+
+                    const { data, error } = await supabase
+                        .from('saved_locations')
+                        .insert(newLocation)
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    if (data) {
+                        const saved: SavedLocation = {
+                            id: data.id,
+                            name: data.name,
+                            lat: data.lat,
+                            lng: data.lng,
+                            category: data.category,
+                            icon: data.icon,
+                            address: data.address,
+                            photo: data.photo,
+                            notes: data.notes,
+                            savedAt: new Date(data.saved_at).getTime()
+                        };
+                        set({ savedLocations: [...savedLocations, saved] });
+                    }
+                } catch (error) {
+                    console.error('Error saving location from coords:', error);
+                }
             },
 
-            updateSavedLocation: (id, updates) => {
-                set(state => ({
-                    savedLocations: state.savedLocations.map(loc =>
-                        loc.id === id ? { ...loc, ...updates } : loc
-                    )
-                }));
+            addSavedLocation: async (location) => {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
+
+                    const newLocation = {
+                        user_id: user.id,
+                        name: location.name,
+                        lat: location.lat,
+                        lng: location.lng,
+                        category: location.category,
+                        icon: location.icon,
+                        address: location.address,
+                        photo: location.photo,
+                        notes: location.notes,
+                        saved_at: new Date().toISOString()
+                    };
+
+                    const { data, error } = await supabase
+                        .from('saved_locations')
+                        .insert(newLocation)
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    if (data) {
+                        const saved: SavedLocation = {
+                            id: data.id,
+                            name: data.name,
+                            lat: data.lat,
+                            lng: data.lng,
+                            category: data.category,
+                            icon: data.icon,
+                            address: data.address,
+                            photo: data.photo,
+                            notes: data.notes,
+                            savedAt: new Date(data.saved_at).getTime()
+                        };
+                        set(state => ({
+                            savedLocations: [...state.savedLocations, saved]
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error adding saved location:', error);
+                }
             },
 
-            deleteSavedLocation: (id) => {
-                set(state => ({
-                    savedLocations: state.savedLocations.filter(loc => loc.id !== id)
-                }));
+            updateSavedLocation: async (id, updates) => {
+                try {
+                    const dbUpdates: Partial<SavedLocation> = {};
+                    if (updates.name !== undefined) dbUpdates.name = updates.name;
+                    if (updates.category !== undefined) dbUpdates.category = updates.category;
+                    if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
+                    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+                    if (updates.photo !== undefined) dbUpdates.photo = updates.photo;
+                    if (updates.address !== undefined) dbUpdates.address = updates.address;
+
+                    const { error } = await supabase
+                        .from('saved_locations')
+                        .update(dbUpdates)
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    set(state => ({
+                        savedLocations: state.savedLocations.map(loc =>
+                            loc.id === id ? { ...loc, ...updates } : loc
+                        )
+                    }));
+                } catch (error) {
+                    console.error('Error updating saved location:', error);
+                }
+            },
+
+            deleteSavedLocation: async (id) => {
+                try {
+                    const { error } = await supabase
+                        .from('saved_locations')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    set(state => ({
+                        savedLocations: state.savedLocations.filter(loc => loc.id !== id)
+                    }));
+                } catch (error) {
+                    console.error('Error deleting saved location:', error);
+                }
+            },
+
+            initialize: async () => {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
+
+                    const { data, error } = await supabase
+                        .from('saved_locations')
+                        .select('*')
+                        .order('saved_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    if (data) {
+                        const locations: SavedLocation[] = data.map(item => ({
+                            id: item.id,
+                            name: item.name,
+                            lat: item.lat,
+                            lng: item.lng,
+                            category: item.category,
+                            icon: item.icon,
+                            address: item.address,
+                            photo: item.photo,
+                            notes: item.notes,
+                            savedAt: new Date(item.saved_at).getTime()
+                        }));
+                        set({ savedLocations: locations });
+                    }
+                } catch (error) {
+                    console.error('Error initializing saved locations:', error);
+                }
             }
         }),
         {

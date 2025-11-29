@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ShoppingItem, Recipe, CookingSession, ShoppingCategory } from '../types';
 import { dbOperations, DB_KEYS } from '../utils/db';
+import { supabase } from '../services/supabase';
 
 interface LifestyleState {
     // Shopping
@@ -64,36 +65,97 @@ export const useLifestyleStore = create<LifestyleState>((set, get) => ({
     cookingSessions: [],
 
     addShoppingItem: async (name, category) => {
-        const item: ShoppingItem = {
-            id: Date.now().toString() + Math.random().toString(36).substring(2),
-            name,
-            category: category || categorizeItem(name),
-            purchased: false,
-            addedDate: new Date().toISOString(),
-        };
-        const updated = [...get().shoppingList, item];
-        set({ shoppingList: updated });
-        await dbOperations.saveData(DB_KEYS.SHOPPING_LIST, updated);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const newItem = {
+                user_id: user.id,
+                name,
+                category: category || categorizeItem(name),
+                purchased: false,
+                added_date: new Date().toISOString()
+            };
+
+            const { data, error } = await supabase
+                .from('shopping_items')
+                .insert(newItem)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            if (data) {
+                const item: ShoppingItem = {
+                    id: data.id,
+                    name: data.name,
+                    category: data.category,
+                    purchased: data.purchased,
+                    addedDate: data.added_date
+                };
+                set({ shoppingList: [...get().shoppingList, item] });
+            }
+        } catch (error) {
+            console.error('Error adding shopping item:', error);
+        }
     },
 
     toggleShoppingItem: async (id) => {
-        const updated = get().shoppingList.map(item =>
-            item.id === id ? { ...item, purchased: !item.purchased } : item
-        );
-        set({ shoppingList: updated });
-        await dbOperations.saveData(DB_KEYS.SHOPPING_LIST, updated);
+        try {
+            const item = get().shoppingList.find(i => i.id === id);
+            if (!item) return;
+
+            const { error } = await supabase
+                .from('shopping_items')
+                .update({ purchased: !item.purchased })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            set({
+                shoppingList: get().shoppingList.map(i =>
+                    i.id === id ? { ...i, purchased: !i.purchased } : i
+                )
+            });
+        } catch (error) {
+            console.error('Error toggling shopping item:', error);
+        }
     },
 
     deleteShoppingItem: async (id) => {
-        const updated = get().shoppingList.filter(item => item.id !== id);
-        set({ shoppingList: updated });
-        await dbOperations.saveData(DB_KEYS.SHOPPING_LIST, updated);
+        try {
+            const { error } = await supabase
+                .from('shopping_items')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            set({ shoppingList: get().shoppingList.filter(i => i.id !== id) });
+        } catch (error) {
+            console.error('Error deleting shopping item:', error);
+        }
     },
 
     clearPurchased: async () => {
-        const updated = get().shoppingList.filter(item => !item.purchased);
-        set({ shoppingList: updated });
-        await dbOperations.saveData(DB_KEYS.SHOPPING_LIST, updated);
+        try {
+            const purchasedIds = get().shoppingList
+                .filter(i => i.purchased)
+                .map(i => i.id);
+
+            if (purchasedIds.length === 0) return;
+
+            const { error } = await supabase
+                .from('shopping_items')
+                .delete()
+                .in('id', purchasedIds);
+
+            if (error) throw error;
+
+            set({ shoppingList: get().shoppingList.filter(i => !i.purchased) });
+        } catch (error) {
+            console.error('Error clearing purchased items:', error);
+        }
     },
 
     addRecipe: async (recipeData) => {
@@ -162,11 +224,42 @@ export const useLifestyleStore = create<LifestyleState>((set, get) => ({
 
     initialize: async () => {
         try {
-            const [shopping, recipes, sessions] = await Promise.all([
-                dbOperations.getData<ShoppingItem[]>(DB_KEYS.SHOPPING_LIST, []),
+            const { data: { user } } = await supabase.auth.getUser();
+
+            // Load local data for recipes/sessions as before
+            const [recipes, sessions] = await Promise.all([
                 dbOperations.getData<Recipe[]>(DB_KEYS.RECIPES, []),
                 dbOperations.getData<CookingSession[]>('cooking-sessions', []),
             ]);
+
+            let shopping: ShoppingItem[] = [];
+
+            if (user) {
+                const { data, error } = await supabase
+                    .from('shopping_items')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (data) {
+                    shopping = data.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        category: item.category,
+                        purchased: item.purchased,
+                        addedDate: item.added_date,
+                        fromRecipe: item.from_recipe
+                    }));
+                }
+            } else {
+                // Fallback to local if no user (guest mode?)
+                // Or maybe we just don't load anything?
+                // For now let's keep it empty or load from local if we want guest persistence
+                // But the prompt implies syncing.
+                // Let's load from local as fallback for guest
+                shopping = await dbOperations.getData<ShoppingItem[]>(DB_KEYS.SHOPPING_LIST, []);
+            }
 
             set({ shoppingList: shopping, recipes, cookingSessions: sessions });
         } catch (error) {

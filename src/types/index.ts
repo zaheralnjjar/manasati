@@ -47,11 +47,11 @@ export interface ReadingGoal {
     pagesPerDay: number;
     startDate: string;
     isQuran: boolean;
-    mode?: 'tilawah' | 'hifz'; // Reading or Memorization
+    mode?: 'tilawah' | 'hifz' | 'pages' | 'time'; // Reading or Memorization
     completed: boolean;
     // New fields for enhanced Quran goals
-    scopeType?: 'juz' | 'surah' | 'verses' | 'khatmah';
-    scopeValue?: string;
+    scopeType?: 'juz' | 'surah' | 'verses' | 'khatmah' | 'all';
+    scopeValue?: string | number;
     dailyTarget?: number;
     durationDays?: number;
 }
@@ -61,7 +61,7 @@ export interface AdhkarCounter {
     name: string;
     count: number;
     target: number;
-    type: 'morning' | 'evening' | 'general';
+    type: 'morning' | 'evening' | 'general' | 'post_prayer';
 }
 
 // Azkar Item for individual azkar
@@ -88,8 +88,8 @@ export interface Task {
     completed: boolean;
     date: string; // ISO date string
     time?: string;
-    section?: string;
-    priority?: 'high' | 'medium' | 'low';
+    section?: TaskSection | string;
+    priority?: TaskPriority;
     status?: TaskStatus;
     description?: string;
     text?: string; // Optional text content for tasks
@@ -104,6 +104,14 @@ export interface Task {
     };
     fromVoice?: boolean;
     rolledOver?: boolean; // Indicates if task was moved from previous day
+    subtasks?: {
+        id: string;
+        title: string;
+        completed: boolean;
+    }[];
+    reminderTime?: string; // ISO string or HH:mm
+    createdAt?: string;
+    completedAt?: string;
 }
 
 export interface Appointment {
@@ -139,6 +147,8 @@ export interface ShoppingCategoryExtended {
     id: string;
     name: string;
     isDefault: boolean;
+    icon?: string;
+    color?: string;
 }
 
 export interface ShoppingItem {
@@ -149,6 +159,15 @@ export interface ShoppingItem {
     purchased: boolean;
     completed?: boolean; // Alias for purchased
     priority?: 'urgent' | 'medium' | 'low';
+    dueDate?: string;
+    dueTime?: string;
+    location?: {
+        lat: number;
+        lng: number;
+        name?: string;
+    };
+    image?: string;
+    notes?: string;
 }
 
 export interface Recipe {
@@ -204,10 +223,11 @@ export interface BudgetCategoryExtended {
 export interface Income {
     id: string;
     amount: number;
-    type: IncomeType;
+    category: string;
+    type?: 'income';
     description: string;
     date: string;
-    recurring: boolean;
+    recurring?: boolean;
 }
 
 export interface TransactionMetadata {
@@ -236,6 +256,10 @@ export interface DevelopmentGoal {
     status: 'active' | 'completed';
     createdAt: string;
     link?: string;
+    // Book specific properties
+    bookName?: string;
+    totalPages?: number;
+    currentPage?: number;
 }
 
 export interface BookGoal {
@@ -252,9 +276,11 @@ export interface BookGoal {
 export interface Expense {
     id: string;
     amount: number;
-    category: ExpenseCategory;
+    category: ExpenseCategory | string;
     description: string;
     date: string;
+    type?: 'expense';
+    recurring?: boolean;
 }
 
 export interface BudgetSummary {
@@ -295,7 +321,7 @@ export interface AppSettings {
 }
 
 // ============= VOICE ASSISTANT =============
-export type IntentType = 'task' | 'appointment' | 'shopping' | 'income' | 'expense' | 'goal' | 'question' | 'unknown';
+export type IntentType = 'task' | 'appointment' | 'shopping' | 'income' | 'expense' | 'goal' | 'question' | 'summary' | 'location' | 'unknown';
 
 export interface VoiceIntent {
     type: IntentType;

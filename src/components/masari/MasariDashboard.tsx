@@ -436,22 +436,30 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                                     <h3 className="text-lg font-bold text-white">
                                         {editingLocation ? 'تعديل الموقع' : 'حفظ موقع جديد'}
                                     </h3>
-                                    <button
-                                        onClick={() => {
-                                            setShowSaveModal(false);
-                                            setEditingLocation(null);
-                                            setLocationForm({
-                                                name: '',
-                                                category: 'parking',
-                                                icon: 'car',
-                                                notes: '',
-                                                photo: undefined
-                                            });
-                                        }}
-                                        className="text-slate-400 hover:text-white"
-                                    >
-                                        <X size={20} />
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleSaveLocation}
+                                            className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                                        >
+                                            {editingLocation ? 'تحديث' : 'حفظ'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowSaveModal(false);
+                                                setEditingLocation(null);
+                                                setLocationForm({
+                                                    name: '',
+                                                    category: 'parking',
+                                                    icon: 'car',
+                                                    notes: '',
+                                                    photo: undefined
+                                                });
+                                            }}
+                                            className="text-slate-400 hover:text-white"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4">

@@ -11,15 +11,17 @@ import Development from './pages/Development';
 import ErrorBoundary from './components/ErrorBoundary';
 import ConfirmDialogProvider from './components/ConfirmDialogProvider';
 import VoiceAssistant from './components/voice/VoiceAssistant';
+import AuthPage from './components/auth/AuthPage'; // Import AuthPage
 
 import { useAppStore } from './store/useAppStore';
 import { useMasariStore } from './store/useMasariStore';
 import { storage } from './utils/storage';
 import { autoBackup } from './utils/autoBackup';
 import './App.css';
+import { Loader2 } from 'lucide-react';
 
 function App() {
-  const { currentPage, setCurrentPage, initialize } = useAppStore();
+  const { currentPage, setCurrentPage, initialize, session, isLoading } = useAppStore();
   const [darkMode, setDarkMode] = useState(true);
 
   // Load settings from localStorage
@@ -27,7 +29,7 @@ function App() {
     // Initialize Auto Backup
     autoBackup.init();
 
-    // Initialize App Store (Settings) - async
+    // Initialize App Store (Settings & Auth) - async
     initialize();
 
     const savedDarkMode = storage.get<boolean>('darkMode');
@@ -123,6 +125,18 @@ function App() {
         return <Dashboard onNavigate={setCurrentPage} />;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary-500" size={48} />
+      </div>
+    );
+  }
+
+  if (!session && !useAppStore.getState().isGuest) {
+    return <AuthPage />;
+  }
 
   return (
     <Layout

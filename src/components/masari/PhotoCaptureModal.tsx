@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, X, Check, RotateCcw, Image as ImageIcon } from 'lucide-react';
+import { X, Check, RotateCcw, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { reverseGeocode } from '../../utils/geocoding';
 
@@ -12,14 +12,10 @@ interface PhotoCaptureModalProps {
 }
 
 export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentLocation, onRequestLocation }: PhotoCaptureModalProps) {
-    const [stream, setStream] = useState<MediaStream | null>(null);
     const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-    const [photoTitle, setPhotoTitle] = useState('');
+    const [photoTitle, setPhotoTitle] = useState('موقف');
     const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
-    const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [address, setAddress] = useState<string>('');
@@ -46,98 +42,15 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
         fetchAddress();
     }, [currentLocation]);
 
-    // ... existing code ...
-
-    {/* Location Info */ }
-    {
-        currentLocation && (
-            <div className="bg-slate-700/50 rounded-lg p-3 text-sm text-slate-300">
-                <p className="flex items-center gap-2">
-                    <span className="text-primary-400">📍</span>
-                    الموقع: {address || 'جاري تحديد العنوان...'}
-                </p>
-            </div>
-        )
-    }
-
-    const startCamera = async () => {
-        setIsLoading(true);
-        setError(null);
-
-        // Check if browser supports mediaDevices
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            const isSecure = window.isSecureContext;
-            let msg = 'المتصفح لا يدعم الوصول للكاميرا.';
-            if (!isSecure) {
-                msg = 'عذراً، الكاميرا تتطلب اتصالاً آمناً (HTTPS). لا يمكن تشغيل الكاميرا على عنوان IP محلي (HTTP). يرجى استخدام localhost أو إعداد HTTPS.';
-            }
-            setError(msg);
-            setIsLoading(false);
-            return;
-        }
-
-        try {
-            console.log('Starting camera...');
-            const mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: facingMode },
-                audio: false
-            });
-
-            console.log('Stream obtained:', mediaStream.id);
-            setStream(mediaStream);
-            // Stream attachment is now handled by useEffect
-        } catch (err: any) {
-            console.error('Camera Error:', err);
-            setError(err.message || 'خطأ في تشغيل الكاميرا');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const toggleCamera = () => {
-        stopCamera();
-        setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-    };
-
-    const stopCamera = () => {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            setStream(null);
-        }
-    };
-
-    const capturePhoto = () => {
-        if (!videoRef.current || !canvasRef.current) return;
-
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        const context = canvas.getContext('2d');
-
-        if (!context) return;
-
-        // Set canvas size to video size
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        // Draw video frame to canvas
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Convert to base64
-        const photoData = canvas.toDataURL('image/jpeg', 0.8);
-        setCapturedPhoto(photoData);
-
-        // Stop camera after capture
-        stopCamera();
-    };
-
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
                 setCapturedPhoto(reader.result as string);
-                // Stop camera if it was running
-                stopCamera();
+            };
+            reader.onerror = () => {
+                setError('فشل في قراءة الملف');
             };
             reader.readAsDataURL(file);
         }
@@ -149,7 +62,7 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
 
     const retakePhoto = () => {
         setCapturedPhoto(null);
-        setPhotoTitle('');
+        setPhotoTitle('موقف');
         // Don't auto start camera, let user choose again
     };
 
@@ -161,9 +74,8 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
     };
 
     const handleClose = () => {
-        stopCamera();
         setCapturedPhoto(null);
-        setPhotoTitle('');
+        setPhotoTitle('موقف');
         setError(null);
         onClose();
     };

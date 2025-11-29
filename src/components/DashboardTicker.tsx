@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Quote, CheckSquare, Wallet, Moon, Calendar, MapPin, ShoppingCart } from 'lucide-react';
+import { Quote, CheckSquare, Wallet, Moon, Calendar, MapPin, ShoppingCart, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import { useProductivityStore } from '../store/useProductivityStore';
@@ -98,24 +98,60 @@ export default function DashboardTicker() {
                 text: `مهام اليوم: ${todayTasks.length} مهمة`,
                 color: 'text-blue-400',
                 type: 'tasks',
-                data: { count: todayTasks.length, tasks: todayTasks.slice(0, 5) }
+                data: { count: todayTasks.length, tasks: todayTasks }
             });
         }
 
-        // 3. Next Appointment
-        const upcomingAppointments = appointments
-            .filter(a => new Date(a.date) > new Date())
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        // 3. Today's Appointments (from Appointments Store & Tasks with section='appointment')
+        const todayAppointments = appointments.filter(a => {
+            const apptDate = new Date(a.date);
+            return apptDate >= today && apptDate < tomorrow;
+        });
 
-        if (upcomingAppointments.length > 0) {
-            const next = upcomingAppointments[0];
+        const appointmentTasks = tasks.filter(t => {
+            if (!t.date || t.section !== 'appointment' || t.completed) return false;
+            const taskDate = new Date(t.date);
+            return taskDate >= today && taskDate < tomorrow;
+        });
+
+        // Combine and sort by time
+        const allAppointments = [
+            ...todayAppointments.map(a => ({ ...a, source: 'appointment' })),
+            ...appointmentTasks.map(t => ({
+                id: t.id,
+                title: t.title,
+                date: t.date,
+                time: t.time || '00:00',
+                location: t.description, // Use description as location for tasks
+                source: 'task'
+            }))
+        ].sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+
+        if (allAppointments.length > 0) {
+            // Add summary item
             newItems.push({
                 icon: Calendar,
-                text: `موعد قادم: ${next.title}`,
+                text: `مواعيد اليوم: ${allAppointments.length} موعد (${allAppointments[0].title}...)`,
                 color: 'text-orange-400',
                 type: 'appointment',
-                data: next
+                data: { count: allAppointments.length, items: allAppointments }
             });
+
+            // Add individual next appointment if exists
+            const nextAppt = allAppointments.find(a => {
+                const apptTime = new Date(`${a.date}T${a.time || '00:00'}`);
+                return apptTime > new Date();
+            });
+
+            if (nextAppt) {
+                newItems.push({
+                    icon: Clock,
+                    text: `الموعد القادم: ${nextAppt.title} (${nextAppt.time})`,
+                    color: 'text-orange-300',
+                    type: 'next_appointment',
+                    data: nextAppt
+                });
+            }
         }
 
         // 4. Budget Balance
@@ -312,13 +348,34 @@ export default function DashboardTicker() {
                                     </div>
                                 )}
 
-                                {(selectedItem.type === 'zikr' || selectedItem.type === 'appointment') && (
+                                {(selectedItem.type === 'zikr') && (
                                     <p className="text-center font-medium leading-relaxed">
-                                        {selectedItem.type === 'zikr'
-                                            ? selectedItem.data.text
-                                            : `📅 ${selectedItem.data.title}`
-                                        }
+                                        {selectedItem.data.text}
                                     </p>
+                                )}
+
+                                {selectedItem.type === 'next_appointment' && (
+                                    <div>
+                                        <p className="text-white mb-1">📅 {selectedItem.data.title}</p>
+                                        <div className="flex justify-between text-xs text-slate-400">
+                                            <span>{selectedItem.data.time}</span>
+                                            <span>{selectedItem.data.location || ''}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedItem.type === 'appointment' && (
+                                    <div>
+                                        <p className="mb-2">مواعيد اليوم: <span className="font-bold text-white">{selectedItem.data.count}</span></p>
+                                        <ul className="list-disc list-inside space-y-1 text-xs">
+                                            {selectedItem.data.items.map((i: any) => (
+                                                <li key={i.id} className="truncate flex justify-between">
+                                                    <span>{i.title}</span>
+                                                    <span className="text-slate-400">{i.time}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 )}
 
                                 {selectedItem.type === 'shopping' && (

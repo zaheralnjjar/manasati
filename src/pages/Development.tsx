@@ -66,6 +66,15 @@ export default function Development() {
 
             {showForm && (
                 <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-8 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-white">إضافة هدف جديد</h3>
+                        <button
+                            onClick={handleAddGoal}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-1.5 rounded-lg font-bold text-sm"
+                        >
+                            حفظ
+                        </button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label className="block text-sm text-slate-400 mb-1">عنوان الهدف</label>
@@ -115,12 +124,7 @@ export default function Development() {
                             </select>
                         </div>
                     </div>
-                    <button
-                        onClick={handleAddGoal}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold"
-                    >
-                        حفظ الهدف
-                    </button>
+
                 </div>
             )}
 

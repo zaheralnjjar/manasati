@@ -1,6 +1,9 @@
+
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronLeft, Calendar as CalendarIcon, CheckCircle2, Circle, Clock, MapPin, Plus, Layout, Download } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Calendar as CalendarIcon, CheckCircle2, Circle, Clock, MapPin, Plus, Layout, Download, Bell } from 'lucide-react';
 import { useProductivityStore } from '../../store/useProductivityStore';
+import { useDevelopmentStore } from '../../store/useDevelopmentStore';
+import { useLifestyleStore } from '../../store/useLifestyleStore';
 import { getToday } from '../../utils/dateHelpers';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -15,6 +18,7 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
     const [selectedDate, setSelectedDate] = useState(getToday());
     const [viewMode, setViewMode] = useState<ViewMode>('day');
     const { tasks, appointments, habits, toggleTask, toggleHabitDay } = useProductivityStore();
+    const { goals } = useDevelopmentStore();
 
     // Generate hours 00:00 to 23:00
     const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -38,11 +42,22 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
 
         // 2. Tasks (only those with time)
         tasks
-            .filter(t => t.date === selectedDate && t.time)
+            .filter(t => t.date === selectedDate)
             .forEach(task => {
-                const hour = parseInt(task.time!.split(':')[0]);
-                if (!isNaN(hour)) {
-                    itemsByHour[hour].push({ ...task, type: 'task' });
+                // Task Time
+                if (task.time) {
+                    const hour = parseInt(task.time.split(':')[0]);
+                    if (!isNaN(hour)) {
+                        itemsByHour[hour].push({ ...task, type: 'task' });
+                    }
+                }
+
+                // Reminder Time
+                if (task.reminderTime) {
+                    const hour = parseInt(task.reminderTime.split(':')[0]);
+                    if (!isNaN(hour)) {
+                        itemsByHour[hour].push({ ...task, type: 'reminder', time: task.reminderTime });
+                    }
                 }
             });
 
@@ -102,7 +117,7 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
             const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`schedule-${selectedDate}.pdf`);
+            pdf.save(`schedule - ${selectedDate}.pdf`);
         } catch (error) {
             console.error('PDF Export failed:', error);
             alert('فشل تصدير PDF');
@@ -171,10 +186,10 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                                 <button
                                                     key={habit.id}
                                                     onClick={() => toggleHabitDay(habit.id, selectedDate)}
-                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${habit.tracking[selectedDate]
+                                                    className={`flex items - center gap - 2 px - 3 py - 1.5 rounded - lg border transition - all ${habit.tracking[selectedDate]
                                                         ? 'bg-green-500/20 border-green-500/50 text-green-400'
                                                         : 'bg-slate-700/50 border-slate-600 text-slate-400 hover:border-slate-500'
-                                                        }`}
+                                                        } `}
                                                 >
                                                     {habit.tracking[selectedDate] ? <CheckCircle2 size={14} /> : <Circle size={14} />}
                                                     <span className="text-sm">{habit.name}</span>
@@ -193,11 +208,11 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                                 <div key={task.id} className="flex items-center gap-3 bg-slate-700/30 p-2 rounded-lg border border-slate-700/30">
                                                     <button
                                                         onClick={() => toggleTask(task.id)}
-                                                        className={`flex-shrink-0 ${task.completed ? 'text-green-500' : 'text-slate-400'}`}
+                                                        className={`flex - shrink - 0 ${task.completed ? 'text-green-500' : 'text-slate-400'} `}
                                                     >
                                                         {task.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                                                     </button>
-                                                    <span className={`text-sm ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
+                                                    <span className={`text - sm ${task.completed ? 'line-through text-slate-500' : 'text-white'} `}>
                                                         {task.title}
                                                     </span>
                                                 </div>
@@ -205,6 +220,21 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Daily Goals */}
+                        {goals.filter(g => g.frequency === 'daily' && g.status === 'active').length > 0 && (
+                            <div>
+                                <div className="text-xs text-slate-500 mb-2">أهداف يومية</div>
+                                <div className="space-y-2">
+                                    {goals.filter(g => g.frequency === 'daily' && g.status === 'active').map(goal => (
+                                        <div key={goal.id} className="flex items-center gap-3 bg-slate-700/30 p-2 rounded-lg border border-slate-700/30">
+                                            <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                            <span className="text-sm text-white">{goal.title}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -220,26 +250,28 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                 return (
                                     <div key={hour} className="relative group">
                                         {/* Time Label */}
-                                        <div className={`absolute -right-[4.5rem] top-0 w-12 text-left text-xs font-mono ${isCurrentHour ? 'text-primary-400 font-bold' : 'text-slate-500'}`}>
+                                        <div className={`absolute - right - [4.5rem] top - 0 w - 12 text - left text - xs font - mono ${isCurrentHour ? 'text-primary-400 font-bold' : 'text-slate-500'} `}>
                                             {hour.toString().padStart(2, '0')}:00
                                         </div>
 
                                         {/* Timeline Dot */}
-                                        <div className={`absolute -right-[11px] top-1.5 w-5 h-5 rounded-full border-4 border-slate-900 ${isCurrentHour ? 'bg-primary-500' : 'bg-slate-700'} z-10`} />
+                                        <div className={`absolute - right - [11px] top - 1.5 w - 5 h - 5 rounded - full border - 4 border - slate - 900 ${isCurrentHour ? 'bg-primary-500' : 'bg-slate-700'} z - 10`} />
 
                                         {/* Hour Content */}
-                                        <div className={`min-h-[3rem] ${items.length > 0 ? 'pb-4' : 'pb-0'}`}>
+                                        <div className={`min - h - [3rem] ${items.length > 0 ? 'pb-4' : 'pb-0'} `}>
                                             {items.length > 0 ? (
                                                 <div className="space-y-2">
                                                     {items.map((item, idx) => (
                                                         <div
-                                                            key={`${item.type}-${item.id}`}
-                                                            className={`p-3 rounded-xl border flex gap-3 ${item.type === 'appointment'
+                                                            key={`${item.type} -${item.id} -${idx} `}
+                                                            className={`p - 3 rounded - xl border flex gap - 3 ${item.type === 'appointment'
                                                                 ? 'bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20'
-                                                                : item.completed
-                                                                    ? 'bg-slate-800/50 border-slate-700 opacity-60'
-                                                                    : 'bg-slate-700/30 border-slate-600 hover:bg-slate-700/50'
-                                                                }`}
+                                                                : item.type === 'reminder'
+                                                                    ? 'bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20'
+                                                                    : item.completed
+                                                                        ? 'bg-slate-800/50 border-slate-700 opacity-60'
+                                                                        : 'bg-slate-700/30 border-slate-600 hover:bg-slate-700/50'
+                                                                } `}
                                                         >
                                                             {/* Icon */}
                                                             <div className="mt-0.5">
@@ -247,11 +279,15 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                                                     <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
                                                                         <Clock size={16} />
                                                                     </div>
+                                                                ) : item.type === 'reminder' ? (
+                                                                    <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center text-yellow-500">
+                                                                        <Bell size={16} />
+                                                                    </div>
                                                                 ) : (
                                                                     <button
                                                                         onClick={() => toggleTask(item.id)}
-                                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${item.completed ? 'bg-green-500/20 text-green-400' : 'bg-slate-600/30 text-slate-400 hover:text-white'
-                                                                            }`}
+                                                                        className={`w - 8 h - 8 rounded - lg flex items - center justify - center transition - colors ${item.completed ? 'bg-green-500/20 text-green-400' : 'bg-slate-600/30 text-slate-400 hover:text-white'
+                                                                            } `}
                                                                     >
                                                                         {item.completed ? <CheckCircle2 size={16} /> : <Circle size={16} />}
                                                                     </button>
@@ -261,8 +297,8 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                                             {/* Content */}
                                                             <div className="flex-1">
                                                                 <div className="flex justify-between items-start">
-                                                                    <span className={`font-medium ${item.completed ? 'line-through text-slate-500' : 'text-white'}`}>
-                                                                        {item.title}
+                                                                    <span className={`font - medium ${item.completed ? 'line-through text-slate-500' : 'text-white'} `}>
+                                                                        {item.type === 'reminder' ? `تذكير: ${item.title} ` : item.title}
                                                                     </span>
                                                                     <span className="text-xs font-mono text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
                                                                         {item.time}
@@ -270,12 +306,16 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                                                 </div>
 
                                                                 {item.type === 'appointment' && item.location && (
-                                                                    <div className="flex items-center gap-1 text-xs text-blue-300/70 mt-1">
-                                                                        <MapPin size={12} />
-                                                                        {item.location}
-                                                                    </div>
+                                                                    <div className="text-sm text-slate-400">{item.location}</div>
                                                                 )}
                                                             </div>
+
+                                                            {item.type === 'appointment' && item.location && (
+                                                                <div className="flex items-center gap-1 text-xs text-blue-300/70 mt-1">
+                                                                    <MapPin size={12} />
+                                                                    {item.location}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -313,7 +353,7 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                     <div className="space-y-2">
                                         {dayTasks.length > 0 ? dayTasks.map(t => (
                                             <div key={t.id} className="text-sm text-slate-300 flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full ${t.completed ? 'bg-green-500' : 'bg-slate-500'}`}></div>
+                                                <div className={`w - 2 h - 2 rounded - full ${t.completed ? 'bg-green-500' : 'bg-slate-500'} `}></div>
                                                 <span className={t.completed ? 'line-through opacity-50' : ''}>{t.title}</span>
                                             </div>
                                         )) : (
@@ -345,7 +385,9 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                                     <ul className="list-disc list-inside text-slate-200">
                                         {dayHabits.map(h => (
                                             <li key={h.id} className={h.tracking[selectedDate] ? 'text-green-400' : ''}>
-                                                {h.name} {h.tracking[selectedDate] ? '(تم)' : ''}
+                                                <button onClick={() => toggleHabitDay(h.id, selectedDate)} className="hover:text-primary-400 transition-colors">
+                                                    {h.name} {h.tracking[selectedDate] ? '(تم)' : ''}
+                                                </button>
                                             </li>
                                         ))}
                                     </ul>
@@ -394,6 +436,6 @@ export default function DailyTimeline({ onAddTaskWithTime }: DailyTimelineProps)
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

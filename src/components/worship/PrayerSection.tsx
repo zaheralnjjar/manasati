@@ -4,7 +4,7 @@ import type { PrayerTime, PrayerSettings } from '../../types';
 import { storage } from '../../utils/storage';
 import { getNextPrayer, getCurrentPrayer, getTimeUntil, getTimeSince, formatTime, prayerNames } from '../../utils/prayerHelpers';
 import { generateICS, downloadICS } from '../../utils/icsExport';
-import { fetchCurrentMonthPrayerTimes, fetchNextMonthPrayerTimes, CALCULATION_METHODS, CALCULATION_METHOD_NAMES } from '../../utils/aladhanApi';
+import { fetchPrayerTimesFromAladhan, CALCULATION_METHODS, CALCULATION_METHOD_NAMES } from '../../utils/aladhanApi';
 import { useSpiritualStore } from '../../store/useSpiritualStore';
 import HolidaysList, { HOLIDAYS_2025 } from './HolidaysList';
 import { getToday } from '../../utils/dateHelpers';
@@ -68,21 +68,46 @@ export default function PrayerSection() {
     const timeUntilNext = nextPrayer ? getTimeUntil(nextPrayer.time) : null;
     const timeSinceCurrent = currentPrayer ? getTimeSince(currentPrayer.time) : null;
 
-    const handleFetchOnline = async (monthOffset: number = 0) => {
+    const [viewDate, setViewDate] = useState(new Date());
+
+    // Auto-fetch current month if empty
+    useEffect(() => {
+        const checkAndFetch = async () => {
+            const currentMonthPrefix = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+            const hasCurrentMonth = prayerTimes.some(pt => pt.date.startsWith(currentMonthPrefix));
+
+            if (!hasCurrentMonth && prayerTimes.length === 0) {
+                await handleFetchOnline(new Date());
+            }
+        };
+        checkAndFetch();
+    }, []);
+
+    const handleFetchOnline = async (date: Date) => {
         setIsFetchingOnline(true);
         try {
-            let fetched: PrayerTime[];
-
-            if (monthOffset === 0) {
-                fetched = await fetchCurrentMonthPrayerTimes(calculationMethod);
-            } else {
-                fetched = await fetchNextMonthPrayerTimes(calculationMethod);
-            }
+            const fetched = await fetchPrayerTimesFromAladhan(
+                date.getFullYear(),
+                date.getMonth() + 1,
+                calculationMethod
+            );
 
             if (fetched.length > 0) {
-                // Replace all existing prayer times with new ones
-                setPrayerTimes(fetched.sort((a, b) => a.date.localeCompare(b.date)));
-                alert(`تم جلب ${fetched.length} يوم من الإنترنت بنجاح!`);
+                // Merge with existing times
+                const existingDates = new Set(prayerTimes.map(pt => pt.date));
+                const newTimes = fetched.filter(pt => !existingDates.has(pt.date));
+
+                // If we are re-fetching (force update), we might want to overwrite.
+                // For now, let's filter out existing to avoid duplicates, 
+                // BUT if the user explicitly clicked "fetch", they might want to update.
+                // Let's remove overlapping dates from existing and add new ones.
+                const fetchedDates = new Set(fetched.map(pt => pt.date));
+                const keptTimes = prayerTimes.filter(pt => !fetchedDates.has(pt.date));
+
+                const merged = [...keptTimes, ...fetched].sort((a, b) => a.date.localeCompare(b.date));
+
+                setPrayerTimes(merged);
+                // alert(`تم جلب أوقات الصلاة لشهر ${date.getMonth() + 1}/${date.getFullYear()} بنجاح!`);
             } else {
                 alert('لم يتم العثور على أوقات صلاة.');
             }
@@ -94,6 +119,17 @@ export default function PrayerSection() {
             setIsFetchingOnline(false);
         }
     };
+
+    const changeMonth = (offset: number) => {
+        const newDate = new Date(viewDate);
+        newDate.setMonth(newDate.getMonth() + offset);
+        setViewDate(newDate);
+    };
+
+    const displayedPrayerTimes = prayerTimes.filter(pt => {
+        const ptDate = new Date(pt.date);
+        return ptDate.getMonth() === viewDate.getMonth() && ptDate.getFullYear() === viewDate.getFullYear();
+    });
 
     const handleAddPrayerTime = () => {
         if (!formData.date || !formData.fajr || !formData.dhuhr || !formData.asr || !formData.maghrib || !formData.isha) {
@@ -114,6 +150,23 @@ export default function PrayerSection() {
         setPrayerTimes([...prayerTimes, newPrayerTime].sort((a, b) => a.date.localeCompare(b.date)));
         setFormData({ date: '', fajr: '', sunrise: '', dhuhr: '', asr: '', maghrib: '', isha: '' });
         setShowAddForm(false);
+    };
+
+    const handleShareDay = (pt: PrayerTime) => {
+        if (navigator.share) {
+            navigator.share({
+                title: `مواقيت الصلاة ليوم ${pt.date}`,
+                text: `الفجر: ${formatTime(pt.fajr)}\nالظهر: ${formatTime(pt.dhuhr)}\nالعصر: ${formatTime(pt.asr)}\nالمغرب: ${formatTime(pt.maghrib)}\nالعشاء: ${formatTime(pt.isha)}`,
+            }).catch(console.error);
+        } else {
+            alert('المشاركة غير مدعومة في هذا المتصفح');
+        }
+    };
+
+    const handleExport = () => {
+        const icsContent = generateICS(prayerTimes, exportSettings);
+        downloadICS(icsContent, `prayer-times-${new Date().getFullYear()}.ics`);
+        setShowExportModal(false);
     };
 
     const handleEditPrayerTime = (prayerTime: PrayerTime) => {
@@ -146,77 +199,12 @@ export default function PrayerSection() {
     const handleMethodChange = async (newMethod: number) => {
         if (confirm('سيتم إعادة جلب جميع الأوقات بالطريقة الجديدة. هل تريد المتابعة؟')) {
             setCalculationMethod(newMethod);
-            // Auto-fetch with new method
-            setIsFetchingOnline(true);
-            try {
-                const fetched = await fetchCurrentMonthPrayerTimes(newMethod);
-                if (fetched.length > 0) {
-                    setPrayerTimes(fetched.sort((a, b) => a.date.localeCompare(b.date)));
-                    alert(`تم تحديث الأوقات بطريقة: ${CALCULATION_METHOD_NAMES[newMethod]}`);
-                }
-            } catch (error) {
-                console.error('Fetch error:', error);
-                alert('حدث خطأ في جلب الأوقات');
-            } finally {
-                setIsFetchingOnline(false);
-            }
+            // Auto-fetch with new method for current view
+            await handleFetchOnline(viewDate);
         }
     };
 
-    const handleExport = () => {
-        if (prayerTimes.length === 0) {
-            alert('لا توجد أوقات صلاة للتصدير');
-            return;
-        }
-
-        // Filter prayer times based on selection
-        const timesToExport = selectAllDates
-            ? prayerTimes
-            : prayerTimes.filter(pt => selectedDates.includes(pt.date));
-
-        if (timesToExport.length === 0) {
-            alert('الرجاء اختيار أيام للتصدير');
-            return;
-        }
-
-        const icsContent = generateICS(timesToExport, exportSettings);
-        if (icsContent) {
-            downloadICS(icsContent);
-            setShowExportModal(false);
-            setSelectedDates([]);
-            setSelectAllDates(true);
-        } else {
-            alert('حدث خطأ أثناء إنشاء ملف التصدير');
-        }
-    };
-
-    const handleShareDay = async (pt: PrayerTime) => {
-        const text = `🕌 أوقات الصلاة ليوم ${new Date(pt.date).toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}:\n\n` +
-            `الفجر: ${pt.fajr}\n` +
-            `الشروق: ${pt.sunrise}\n` +
-            `الظهر: ${pt.dhuhr}\n` +
-            `العصر: ${pt.asr}\n` +
-            `المغرب: ${pt.maghrib}\n` +
-            `العشاء: ${pt.isha}\n\n` +
-            `تمت المشاركة عبر تطبيق منصتي`;
-
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: `أوقات الصلاة - ${pt.date}`,
-                    text: text,
-                });
-            } catch (err) {
-                if ((err as Error).name !== 'AbortError') {
-                    await navigator.clipboard.writeText(text);
-                    alert('تم نسخ الأوقات إلى الحافظة');
-                }
-            }
-        } else {
-            await navigator.clipboard.writeText(text);
-            alert('تم نسخ الأوقات إلى الحافظة');
-        }
-    };
+    // ... exports ...
 
     return (
         <div className="p-0 md:p-4 max-w-4xl mx-auto space-y-2">
@@ -281,32 +269,36 @@ export default function PrayerSection() {
                                     ))}
                                 </select>
                             </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleFetchOnline(0)}
-                                    disabled={isFetchingOnline}
-                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded px-3 py-2 flex items-center justify-center gap-1 transition-colors"
-                                >
-                                    <Globe size={14} />
-                                    <span>{isFetchingOnline ? '...' : 'الشهر الحالي'}</span>
+
+                            {/* Month Navigation */}
+                            <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-1">
+                                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-slate-600 rounded text-slate-300">
+                                    ←
                                 </button>
-                                <button
-                                    onClick={() => handleFetchOnline(1)}
-                                    disabled={isFetchingOnline}
-                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded px-3 py-2 flex items-center justify-center gap-1 transition-colors"
-                                >
-                                    <Calendar size={14} />
-                                    <span>{isFetchingOnline ? '...' : 'الشهر القادم'}</span>
+                                <span className="text-sm font-bold text-white">
+                                    {viewDate.toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' })}
+                                </span>
+                                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-slate-600 rounded text-slate-300">
+                                    →
                                 </button>
                             </div>
+
+                            <button
+                                onClick={() => handleFetchOnline(viewDate)}
+                                disabled={isFetchingOnline}
+                                className="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs rounded px-3 py-2 flex items-center justify-center gap-1 transition-colors"
+                            >
+                                <Globe size={14} />
+                                <span>{isFetchingOnline ? 'جاري الجلب...' : 'تحديث أوقات هذا الشهر'}</span>
+                            </button>
                         </div>
                     </div>
 
                     {/* Prayer Times Table */}
-                    {prayerTimes.length > 0 ? (
+                    {displayedPrayerTimes.length > 0 ? (
                         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
                             <div className="flex items-center justify-between p-2 border-b border-slate-700 bg-slate-750">
-                                <h3 className="text-sm font-bold text-white">الجدول ({prayerTimes.length} يوم)</h3>
+                                <h3 className="text-sm font-bold text-white">الجدول ({displayedPrayerTimes.length} يوم)</h3>
                                 <div className="flex gap-2">
 
                                     <button
@@ -349,19 +341,28 @@ export default function PrayerSection() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700/50">
-                                        {prayerTimes.map((pt) => {
+                                        {displayedPrayerTimes.map((pt) => {
                                             const holiday = HOLIDAYS_2025.find(h => h.date === pt.date);
                                             const isTodayRow = pt.date === getToday();
                                             return (
                                                 <tr key={pt.date} className={`hover:bg-slate-700/30 transition-colors ${isTodayRow ? 'bg-primary-900/10' : ''}`}>
-                                                    <td className="p-1 whitespace-nowrap">
-                                                        <div className={`font-bold ${isTodayRow ? 'text-primary-400' : 'text-slate-200'}`}>
-                                                            {new Date(pt.date).getDate()}
+                                                    <td className="p-1 whitespace-nowrap text-center">
+                                                        {/* Day Name */}
+                                                        <div className="text-[10px] text-slate-400 font-medium">
+                                                            {new Date(pt.date).toLocaleDateString('ar-SA', { weekday: 'long' })}
                                                         </div>
-                                                        <div className="text-[9px] text-slate-500">
-                                                            {new Date(pt.date).toLocaleDateString('ar-SA', { weekday: 'short' })}
+
+                                                        {/* Gregorian Date (DD MM) */}
+                                                        <div className={`font-bold text-xs ${isTodayRow ? 'text-primary-400' : 'text-white'}`} dir="ltr">
+                                                            {new Date(pt.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }).replace('/', ' ')}
                                                         </div>
-                                                        {holiday && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-0.5" title={holiday.name}></div>}
+
+                                                        {/* Hijri Date (DD MM) */}
+                                                        <div className="text-[9px] text-emerald-500/80 font-medium" dir="ltr">
+                                                            {new Date(pt.date).toLocaleDateString('ar-SA-u-ca-islamic', { day: 'numeric', month: 'numeric' }).replace('/', ' ')}
+                                                        </div>
+
+                                                        {holiday && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mx-auto mt-0.5" title={holiday.name}></div>}
                                                     </td>
                                                     <td className="p-1 text-center font-mono text-slate-300">{pt.fajr}</td>
                                                     <td className="p-1 text-center font-mono text-slate-500 text-[10px]">{pt.sunrise}</td>

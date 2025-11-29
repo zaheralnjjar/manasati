@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Send, Bot, X, Mic, Globe, History as HistoryIcon, Lightbulb, Calendar, Target } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Bot, X, Mic, Globe, History as HistoryIcon, Lightbulb, Calendar, Target, MapPin, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 import { useFinanceStore } from '../../store/useFinanceStore';
-import { useProductivityStore } from '../../store/useProductivityStore';
-import { useLifestyleStore } from '../../store/useLifestyleStore';
-import { usePrayerSync } from '../../hooks/usePrayerSync'; // Import hook, but we'll use .getState() trick or need to refactor to use hook inside componentionSupported, getSpeechRecognition } from '../../utils/voiceProcessor';
+import { useSpiritualStore } from '../../store/useSpiritualStore';
+import { useDevelopmentStore } from '../../store/useDevelopmentStore';
+import { useMasariStore } from '../../store/useMasariStore';
 import { processVoiceCommand, isSpeechRecognitionSupported, getSpeechRecognition } from '../../utils/voiceProcessor';
 import { getToday } from '../../utils/dateHelpers';
 import { addTaskToSystem, deleteTaskFromSystem } from '../../utils/taskHelper';
@@ -13,7 +13,18 @@ import { addShoppingItemToSystem, removeShoppingItemFromSystem, getShoppingListF
 import { addGoalToSystem } from '../../utils/goalHelper';
 import { aiHelper } from '../../utils/aiHelper';
 import { storage } from '../../utils/storage';
-import type { Task } from '../../types';
+import type { Task, IntentType, VoiceIntent } from '../../types';
+
+// Conversation States
+type ConversationState = 'IDLE' | 'LISTENING_INITIAL' | 'PROCESSING' | 'ASKING_SLOT' | 'EXECUTING';
+
+// Form Data for Multi-turn
+interface FormData {
+    intentType?: IntentType;
+    data: any;
+    missingField?: string;
+    question?: string;
+}
 
 const ISLAMIC_ADVICE = [
     "قال رسول الله ﷺ: «كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»",
@@ -33,7 +44,10 @@ const PRODUCTIVITY_TIPS = [
 
 export default function VoiceAssistant() {
     const { isVoiceActive, setVoiceActive } = useAppStore();
-    const { addIncome, addExpense } = useFinanceStore();
+    const { addIncome, addExpense, incomes, expenses } = useFinanceStore();
+    const { readingGoals } = useSpiritualStore();
+    const { goals } = useDevelopmentStore();
+    const { addSavedLocation } = useMasariStore();
 
     const [inputText, setInputText] = useState('');
     const [feedback, setFeedback] = useState('');
@@ -46,8 +60,13 @@ export default function VoiceAssistant() {
     const [showHistory, setShowHistory] = useState(false);
     const [dailyAdvice, setDailyAdvice] = useState('');
     const [productivityTip, setProductivityTip] = useState('');
-    const [upcomingAppointments, setUpcomingAppointments] = useState<Task[]>([]);
 
+    // State Machine
+    const [conversationState, setConversationState] = useState<ConversationState>('IDLE');
+    const [formData, setFormData] = useState<FormData>({ data: {} });
+    const synthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+    // Initialize Speech Recognition
     useEffect(() => {
         if (isSpeechRecognitionSupported()) {
             const recog = getSpeechRecognition();
@@ -56,7 +75,7 @@ export default function VoiceAssistant() {
                 recog.onresult = (event: any) => {
                     const transcript = event.results[0][0].transcript;
                     setInputText(transcript);
-                    handleVoiceSubmit(transcript);
+                    handleVoiceInput(transcript);
                 };
                 recog.onend = () => setIsListening(false);
                 setRecognition(recog);
@@ -64,36 +83,42 @@ export default function VoiceAssistant() {
         }
     }, [language]);
 
-    // Load proactive content on open
+    // Auto-start and Proactive Content
     useEffect(() => {
         if (isVoiceActive) {
             setDailyAdvice(ISLAMIC_ADVICE[Math.floor(Math.random() * ISLAMIC_ADVICE.length)]);
             setProductivityTip(PRODUCTIVITY_TIPS[Math.floor(Math.random() * PRODUCTIVITY_TIPS.length)]);
 
-            const tasks = storage.get<Task[]>('tasks') || [];
-            const appointments = tasks
-                .filter(t => t.section === 'appointment' && !t.completed && t.dueDate)
-                .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
-                .slice(0, 3);
-            setUpcomingAppointments(appointments);
-
-            // Load history
             const savedHistory = storage.get<string[]>('voiceHistory') || [];
             setHistory(savedHistory);
+
+            // Auto-start listening
+            if (recognition && !isListening) {
+                try {
+                    setConversationState('LISTENING_INITIAL');
+                    recognition.start();
+                    setIsListening(true);
+                } catch (e) { /* Ignore */ }
+            }
+        } else {
+            // Reset state on close
+            setConversationState('IDLE');
+            setFormData({ data: {} });
+            setFeedback('');
+            setAiResponse(null);
+            if (isListening && recognition) recognition.stop();
         }
     }, [isVoiceActive]);
 
-    // Auto-start listening when activated
-    useEffect(() => {
-        if (isVoiceActive && recognition && !isListening) {
-            try {
-                recognition.start();
-                setIsListening(true);
-            } catch (e) {
-                // Ignore error if already started
-            }
+    const speak = (text: string) => {
+        if ('speechSynthesis' in window) {
+            if (synthesisRef.current) window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = language === 'ar' ? 'ar-SA' : 'es-ES';
+            synthesisRef.current = utterance;
+            window.speechSynthesis.speak(utterance);
         }
-    }, [isVoiceActive, recognition]);
+    };
 
     const toggleListening = () => {
         if (!recognition) return;
@@ -111,123 +136,250 @@ export default function VoiceAssistant() {
         storage.set('voiceHistory', newHistory);
     };
 
-    const handleVoiceSubmit = async (text: string) => {
+    const handleVoiceInput = async (text: string) => {
         if (!text.trim()) return;
-        setIsProcessing(true);
-        setFeedback('');
-        setAiResponse(null);
         addToHistory(text);
 
-        try {
-            const intent = processVoiceCommand(text);
-            await handleIntent(intent);
-        } catch (error) {
-            setFeedback(language === 'ar' ? 'حدث خطأ في معالجة الأمر' : 'Error procesando el comando');
-        } finally {
-            setIsProcessing(false);
+        if (conversationState === 'LISTENING_INITIAL' || conversationState === 'IDLE') {
+            // New Command
+            setIsProcessing(true);
+            setFeedback('');
+            setAiResponse(null);
+            try {
+                const intent = processVoiceCommand(text);
+                await processIntent(intent);
+            } catch (error) {
+                setFeedback(language === 'ar' ? 'حدث خطأ في معالجة الأمر' : 'Error procesando el comando');
+            } finally {
+                setIsProcessing(false);
+            }
+        } else if (conversationState === 'ASKING_SLOT') {
+            // Filling a slot
+            await handleSlotFill(text);
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        await handleVoiceSubmit(inputText);
-        setInputText('');
+    const processIntent = async (intent: VoiceIntent) => {
+        // Handle immediate actions (Summary, Location, Question, Delete)
+        if (intent.action === 'delete') {
+            handleDeleteIntent(intent);
+            setConversationState('IDLE');
+            return;
+        }
+
+        if (intent.type === 'question') {
+            setFeedback(language === 'ar' ? 'جاري البحث عن الإجابة...' : 'Buscando respuesta...');
+            try {
+                const answer = await aiHelper.askScholar(intent.content);
+                setAiResponse(answer);
+                setFeedback(language === 'ar' ? '✓ تم العثور على الإجابة' : '✓ Respuesta encontrada');
+                speak(language === 'ar' ? 'إليك الإجابة' : 'Aquí está la respuesta');
+            } catch (e) {
+                setFeedback(language === 'ar' ? 'عذراً، حدث خطأ أثناء البحث' : 'Error buscando respuesta');
+            }
+            setConversationState('IDLE');
+            return;
+        }
+
+        if (intent.type === 'summary') {
+            handleSummary();
+            setConversationState('IDLE');
+            return;
+        }
+
+        if (intent.type === 'location') {
+            handleSaveLocation();
+            setConversationState('IDLE');
+            return;
+        }
+
+        // Handle Form-based intents (Task, Goal, Finance, Shopping)
+        const newFormData: FormData = {
+            intentType: intent.type,
+            data: {
+                content: intent.content,
+                date: intent.date,
+                time: intent.time,
+                amount: intent.amount,
+                category: intent.category,
+                section: intent.section
+            }
+        };
+
+        checkMissingSlots(newFormData);
     };
 
-    const handleIntent = async (intent: any) => {
-        try {
-            const targetDate = intent.date || getToday();
-            const action = intent.action || 'add';
+    const checkMissingSlots = (form: FormData) => {
+        const { intentType, data } = form;
+        let missing = '';
+        let question = '';
 
-            if (action === 'delete') {
-                handleDeleteIntent(intent);
-                return;
+        if (intentType === 'task' || intentType === 'appointment') {
+            if (!data.content || data.content === 'مهمة' || data.content === 'موعد') {
+                missing = 'content';
+                question = language === 'ar' ? 'ما هو عنوان المهمة؟' : '¿Cuál es el título de la tarea?';
             }
+        } else if (intentType === 'goal') {
+            if (!data.content || data.content === 'هدف') {
+                missing = 'content';
+                question = language === 'ar' ? 'ما هو هدفك؟' : '¿Cuál es tu meta?';
+            }
+        } else if (intentType === 'income' || intentType === 'expense') {
+            if (!data.amount) {
+                missing = 'amount';
+                question = language === 'ar' ? 'كم المبلغ؟' : '¿Cuánto es el monto?';
+            }
+        } else if (intentType === 'shopping') {
+            if (!data.content || data.content === 'شراء') {
+                missing = 'content';
+                question = language === 'ar' ? 'ماذا تريد أن تشتري؟' : '¿Qué quieres comprar?';
+            }
+        }
 
-            switch (intent.type) {
+        if (missing) {
+            setFormData({ ...form, missingField: missing, question });
+            setConversationState('ASKING_SLOT');
+            setFeedback(question);
+            speak(question);
+            // Re-enable listening for answer
+            setTimeout(() => {
+                if (recognition) recognition.start();
+                setIsListening(true);
+            }, 1000);
+        } else {
+            executeAction(form);
+        }
+    };
+
+    const handleSlotFill = async (text: string) => {
+        const { missingField, data } = formData;
+        const newData = { ...data };
+
+        if (missingField === 'content') {
+            newData.content = text;
+        } else if (missingField === 'amount') {
+            // Extract number from text
+            const match = text.match(/(\d+)/);
+            if (match) {
+                newData.amount = parseFloat(match[0]);
+            }
+        }
+
+        const updatedForm = { ...formData, data: newData, missingField: undefined };
+        checkMissingSlots(updatedForm);
+    };
+
+    const executeAction = async (form: FormData) => {
+        setConversationState('EXECUTING');
+        const { intentType, data } = form;
+        const targetDate = data.date || getToday();
+
+        try {
+            switch (intentType) {
                 case 'task':
-                    addTaskToSystem(intent.content, {
+                    addTaskToSystem(data.content, {
                         dueDate: targetDate,
-                        recurrence: { type: 'none', specificTime: intent.time },
-                        section: (intent.section as any) || 'general',
+                        recurrence: { type: 'none', specificTime: data.time },
+                        section: (data.section as any) || 'general',
                         priority: 'medium',
                     });
-                    setFeedback(language === 'ar'
-                        ? `✓ تمت إضافة المهمة ${intent.date ? `ليوم ${new Date(intent.date).toLocaleDateString('ar-SA', { weekday: 'long' })}` : ''} ${intent.section ? `(قسم ${intent.section})` : ''}`
-                        : `✓ Tarea añadida`);
+                    setFeedback(language === 'ar' ? `✓ تمت إضافة المهمة: ${data.content}` : `✓ Tarea añadida: ${data.content}`);
                     break;
 
                 case 'appointment':
-                    addTaskToSystem(intent.content, {
-                        dueDate: intent.time ? `${targetDate}T${intent.time}` : targetDate,
+                    addTaskToSystem(data.content, {
+                        dueDate: data.time ? `${targetDate}T${data.time}` : targetDate,
                         section: 'appointment',
                         priority: 'medium',
                     });
-                    setFeedback(language === 'ar'
-                        ? `✓ تمت إضافة الموعد ${intent.time ? `الساعة ${intent.time}` : ''}`
-                        : `✓ Cita añadida`);
+                    setFeedback(language === 'ar' ? `✓ تم إضافة الموعد: ${data.content}` : `✓ Cita añadida: ${data.content}`);
                     break;
 
                 case 'goal':
-                    addGoalToSystem(intent.content, {
-                        type: 'book',
-                        frequency: 'once'
+                    addGoalToSystem(data.content, {
+                        type: 'custom',
+                        frequency: 'daily'
                     });
-                    setFeedback(language === 'ar' ? '✓ تمت إضافة الهدف' : '✓ Meta añadida');
-                    break;
-
-                case 'question':
-                    setFeedback(language === 'ar' ? 'جاري البحث عن الإجابة...' : 'Buscando respuesta...');
-                    try {
-                        const answer = await aiHelper.askScholar(intent.content);
-                        setAiResponse(answer);
-                        setFeedback(language === 'ar' ? '✓ تم العثور على الإجابة' : '✓ Respuesta encontrada');
-                    } catch (e) {
-                        setFeedback(language === 'ar' ? 'عذراً، حدث خطأ أثناء البحث' : 'Error buscando respuesta');
-                    }
-                    break;
-
-                case 'shopping':
-                    const itemName = intent.content.replace(/(اشتري|شراء|تسوق|أضف|اضف|إلى|قائمة|التسوق|comprar|compra|lista|traer)/gi, '').trim();
-                    addShoppingItemToSystem(itemName);
-                    setFeedback(language === 'ar' ? '✓ تمت إضافة العنصر للتسوق' : '✓ Añadido a la lista de compras');
+                    setFeedback(language === 'ar' ? `✓ تم إضافة الهدف: ${data.content}` : `✓ Meta añadida: ${data.content}`);
                     break;
 
                 case 'income':
-                    if (intent.amount) {
-                        await addIncome({
-                            amount: intent.amount,
-                            type: 'variable',
-                            description: intent.content,
-                            date: targetDate,
-                            recurring: false,
-                        });
-                        setFeedback(language === 'ar' ? '✓ تمت إضافة الدخل' : '✓ Ingreso añadido');
-                    } else {
-                        setFeedback(language === 'ar' ? 'يرجى تحديد المبلغ' : 'Por favor especifique el monto');
-                    }
+                    await addIncome({
+                        amount: data.amount,
+                        category: 'variable',
+                        description: data.content || 'دخل',
+                        date: targetDate,
+                        recurring: false,
+                    });
+                    setFeedback(language === 'ar' ? `✓ تم تسجيل الدخل: ${data.amount}` : `✓ Ingreso registrado: ${data.amount}`);
                     break;
 
                 case 'expense':
-                    if (intent.amount) {
-                        await addExpense({
-                            amount: intent.amount,
-                            category: intent.category as any || 'أخرى',
-                            description: intent.content,
-                            date: targetDate,
-                        });
-                        setFeedback(language === 'ar' ? '✓ تمت إضافة المصروف' : '✓ Gasto añadido');
-                    } else {
-                        setFeedback(language === 'ar' ? 'يرجى تحديد المبلغ' : 'Por favor especifique el monto');
-                    }
+                    await addExpense({
+                        amount: data.amount,
+                        category: data.category || 'أخرى',
+                        description: data.content || 'مصروف',
+                        date: targetDate,
+                    });
+                    setFeedback(language === 'ar' ? `✓ تم تسجيل المصروف: ${data.amount}` : `✓ Gasto registrado: ${data.amount}`);
                     break;
 
-                default:
-                    setFeedback(language === 'ar' ? 'لم أفهم الأمر، حاول بصيغة أخرى' : 'No entendí el comando');
+                case 'shopping':
+                    addShoppingItemToSystem(data.content);
+                    setFeedback(language === 'ar' ? `✓ تمت الإضافة للتسوق: ${data.content}` : `✓ Añadido a compras: ${data.content}`);
+                    break;
             }
+            speak(language === 'ar' ? 'تم التنفيذ' : 'Hecho');
         } catch (error) {
             console.error(error);
-            setFeedback(language === 'ar' ? 'حدث خطأ في تنفيذ الأمر' : 'Error ejecutando el comando');
+            setFeedback(language === 'ar' ? 'حدث خطأ' : 'Error');
+        }
+
+        setConversationState('IDLE');
+        setFormData({ data: {} });
+    };
+
+    const handleSummary = () => {
+        // Generate summary text
+        const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
+        const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
+        const activeGoals = goals.filter(g => g.status === 'active').length;
+        const readingCount = readingGoals.length;
+
+        const summaryAr = `لديك ${readingCount} أهداف قراءة، و ${activeGoals} أهداف تطويرية. مجموع الدخل ${totalIncome} ومجموع المصاريف ${totalExpense}.`;
+        const summaryEs = `Tienes ${readingCount} metas de lectura y ${activeGoals} metas de desarrollo. Ingresos totales ${totalIncome} y gastos ${totalExpense}.`;
+
+        const text = language === 'ar' ? summaryAr : summaryEs;
+        setAiResponse(text);
+        setFeedback(language === 'ar' ? 'ملخص حالتك' : 'Resumen de estado');
+        speak(text);
+    };
+
+    const handleSaveLocation = () => {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    addSavedLocation({
+                        name: language === 'ar' ? `موقع محفوظ ${new Date().toLocaleTimeString()}` : `Ubicación guardada`,
+                        category: 'place',
+                        lat: latitude,
+                        lng: longitude,
+                        streetAddress: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+                        notes: 'Saved via Voice Assistant'
+                    });
+                    const msg = language === 'ar' ? 'تم حفظ موقعك الحالي بنجاح' : 'Ubicación guardada exitosamente';
+                    setFeedback(`✓ ${msg}`);
+                    speak(msg);
+                },
+                () => {
+                    const msg = language === 'ar' ? 'تعذر الحصول على الموقع' : 'No se pudo obtener la ubicación';
+                    setFeedback(msg);
+                    speak(msg);
+                }
+            );
+        } else {
+            setFeedback(language === 'ar' ? 'الموقع غير مدعوم' : 'Geolocalización no soportada');
         }
     };
 
@@ -255,6 +407,12 @@ export default function VoiceAssistant() {
         }
 
         setFeedback(language === 'ar' ? `لم أجد "${searchTerm}" للحذف` : `No encontré "${searchTerm}" para eliminar`);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await handleVoiceInput(inputText);
+        setInputText('');
     };
 
     return (
@@ -350,8 +508,26 @@ export default function VoiceAssistant() {
                                 ) : (
                                     <>
                                         {/* Welcome / Proactive Content */}
-                                        {!feedback && !aiResponse && (
+                                        {!feedback && !aiResponse && conversationState === 'IDLE' && (
                                             <div className="space-y-4 mb-6">
+                                                {/* Suggestions Chips */}
+                                                <div className="flex flex-wrap gap-2 justify-center mb-4">
+                                                    {[
+                                                        { icon: FileText, label: language === 'ar' ? 'ملخص' : 'Resumen', cmd: language === 'ar' ? 'أعطني ملخص' : 'Dame un resumen' },
+                                                        { icon: MapPin, label: language === 'ar' ? 'حفظ موقعي' : 'Guardar ubicación', cmd: language === 'ar' ? 'احفظ موقعي' : 'Guarda mi ubicación' },
+                                                        { icon: Target, label: language === 'ar' ? 'هدف جديد' : 'Nueva meta', cmd: language === 'ar' ? 'إضافة هدف' : 'Añadir meta' },
+                                                    ].map((chip, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => handleVoiceInput(chip.cmd)}
+                                                            className="flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-full text-xs text-white transition-colors border border-slate-600"
+                                                        >
+                                                            <chip.icon size={12} />
+                                                            {chip.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
                                                 {/* Daily Advice */}
                                                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
                                                     <div className="flex items-center gap-2 mb-1 text-emerald-400">
@@ -377,34 +553,12 @@ export default function VoiceAssistant() {
                                                         {productivityTip}
                                                     </p>
                                                 </div>
-
-                                                {/* Upcoming Appointments */}
-                                                {upcomingAppointments.length > 0 && (
-                                                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-                                                        <div className="flex items-center gap-2 mb-2 text-purple-400">
-                                                            <Calendar size={16} />
-                                                            <span className="text-xs font-bold">
-                                                                {language === 'ar' ? 'مواعيدك القادمة' : 'Próximas citas'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            {upcomingAppointments.map(app => (
-                                                                <div key={app.id} className="flex justify-between items-center text-sm">
-                                                                    <span className="text-white">{app.title}</span>
-                                                                    <span className="text-slate-400 text-xs">
-                                                                        {new Date(app.dueDate!).toLocaleDateString('ar-SA', { weekday: 'short', hour: 'numeric', minute: 'numeric' })}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 
                                         <div className="text-center mb-6">
                                             <p className="text-slate-300 text-sm mb-4">
-                                                {language === 'ar' ? 'كيف يمكنني مساعدتك اليوم؟' : '¿Cómo puedo ayudarte hoy?'}
+                                                {conversationState === 'ASKING_SLOT' ? feedback : (language === 'ar' ? 'كيف يمكنني مساعدتك اليوم؟' : '¿Cómo puedo ayudarte hoy?')}
                                             </p>
                                             {isListening && (
                                                 <div className="flex justify-center gap-1 mb-4">
@@ -450,7 +604,7 @@ export default function VoiceAssistant() {
                                         </form>
 
                                         {/* Feedback Area */}
-                                        {(feedback || aiResponse) && (
+                                        {(feedback || aiResponse) && conversationState !== 'ASKING_SLOT' && (
                                             <motion.div
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
