@@ -120,7 +120,7 @@ export default function QuranSection() {
     };
 
     return (
-        <div className="p-4 max-w-4xl mx-auto">
+        <div className="p-0 md:p-4 max-w-4xl mx-auto">
             {/* Tabs */}
             <div className="flex bg-slate-800 rounded-lg p-1 mb-6">
                 <button

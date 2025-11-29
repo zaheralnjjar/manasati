@@ -1,59 +1,102 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, X, Check, RotateCcw, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { reverseGeocode } from '../../utils/geocoding';
 
 interface PhotoCaptureModalProps {
     isOpen: boolean;
     onClose: () => void;
     onCapture: (photoData: string, title: string) => void;
     currentLocation: { lat: number; lng: number } | null;
+    onRequestLocation?: () => void;
 }
 
-export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentLocation }: PhotoCaptureModalProps) {
+export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentLocation, onRequestLocation }: PhotoCaptureModalProps) {
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
     const [photoTitle, setPhotoTitle] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [address, setAddress] = useState<string>('');
 
-    // Start camera when modal opens
+    // Request fresh location when modal opens
     useEffect(() => {
-        if (isOpen && !capturedPhoto) {
-            startCamera();
+        if (isOpen && onRequestLocation) {
+            onRequestLocation();
         }
+    }, [isOpen, onRequestLocation]);
 
-        return () => {
-            stopCamera();
+    // Fetch address when location is available
+    useEffect(() => {
+        const fetchAddress = async () => {
+            if (currentLocation) {
+                try {
+                    const addr = await reverseGeocode(currentLocation.lat, currentLocation.lng);
+                    setAddress(addr || `${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`);
+                } catch (e) {
+                    setAddress(`${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`);
+                }
+            }
         };
-    }, [isOpen]);
+        fetchAddress();
+    }, [currentLocation]);
+
+    // ... existing code ...
+
+    {/* Location Info */ }
+    {
+        currentLocation && (
+            <div className="bg-slate-700/50 rounded-lg p-3 text-sm text-slate-300">
+                <p className="flex items-center gap-2">
+                    <span className="text-primary-400">📍</span>
+                    الموقع: {address || 'جاري تحديد العنوان...'}
+                </p>
+            </div>
+        )
+    }
 
     const startCamera = async () => {
         setIsLoading(true);
         setError(null);
 
+        // Check if browser supports mediaDevices
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            const isSecure = window.isSecureContext;
+            let msg = 'المتصفح لا يدعم الوصول للكاميرا.';
+            if (!isSecure) {
+                msg = 'عذراً، الكاميرا تتطلب اتصالاً آمناً (HTTPS). لا يمكن تشغيل الكاميرا على عنوان IP محلي (HTTP). يرجى استخدام localhost أو إعداد HTTPS.';
+            }
+            setError(msg);
+            setIsLoading(false);
+            return;
+        }
+
         try {
+            console.log('Starting camera...');
             const mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'environment', // Back camera on mobile
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
+                video: { facingMode: facingMode },
+                audio: false
             });
 
+            console.log('Stream obtained:', mediaStream.id);
             setStream(mediaStream);
-
-            if (videoRef.current) {
-                videoRef.current.srcObject = mediaStream;
-            }
-        } catch (err) {
-            console.error('Error accessing camera:', err);
-            setError('لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الأذونات.');
+            // Stream attachment is now handled by useEffect
+        } catch (err: any) {
+            console.error('Camera Error:', err);
+            setError(err.message || 'خطأ في تشغيل الكاميرا');
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const toggleCamera = () => {
+        stopCamera();
+        setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
     };
 
     const stopCamera = () => {
@@ -87,10 +130,27 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
         stopCamera();
     };
 
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setCapturedPhoto(reader.result as string);
+                // Stop camera if it was running
+                stopCamera();
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const triggerFileUpload = () => {
+        fileInputRef.current?.click();
+    };
+
     const retakePhoto = () => {
         setCapturedPhoto(null);
         setPhotoTitle('');
-        startCamera();
+        // Don't auto start camera, let user choose again
     };
 
     const handleSave = () => {
@@ -129,9 +189,9 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
                     {/* Header */}
                     <div className="bg-slate-900/50 p-4 flex justify-between items-center border-b border-slate-700">
                         <div className="flex items-center gap-2">
-                            <Camera className="text-primary-500" size={24} />
+                            <ImageIcon className="text-primary-500" size={24} />
                             <h3 className="font-bold text-white">
-                                {capturedPhoto ? 'معاينة الصورة' : 'التقاط صورة'}
+                                {capturedPhoto ? 'معاينة الصورة' : 'إضافة صورة'}
                             </h3>
                         </div>
                         <button
@@ -144,24 +204,31 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
 
                     {/* Body */}
                     <div className="p-4 overflow-y-auto flex-1">
-                        {error ? (
-                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-center">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-center mb-4">
                                 <p className="text-red-400 text-sm">{error}</p>
-                                <button
-                                    onClick={startCamera}
-                                    className="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
-                                >
-                                    إعادة المحاولة
-                                </button>
+                                {
+                                    // Only show retry button if error is camera related and not just a general error
+                                    !capturedPhoto && (
+                                        <button
+                                            onClick={startCamera}
+                                            className="mt-3 px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
+                                        >
+                                            إعادة المحاولة
+                                        </button>
+                                    )
+                                }
                             </div>
-                        ) : capturedPhoto ? (
+                        )}
+
+                        {capturedPhoto ? (
                             /* Photo Preview */
                             <div className="space-y-4">
                                 <div className="relative rounded-xl overflow-hidden border border-slate-700">
                                     <img
                                         src={capturedPhoto}
                                         alt="Captured"
-                                        className="w-full h-auto"
+                                        className="w-full h-auto max-h-[50vh] object-contain bg-black"
                                     />
                                 </div>
 
@@ -180,13 +247,23 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
                                     />
                                 </div>
 
-                                {/* Location Info */}
+                                {/* Location Info - Editable */}
                                 {currentLocation && (
                                     <div className="bg-slate-700/50 rounded-lg p-3 text-sm text-slate-300">
-                                        <p className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 mb-1">
                                             <span className="text-primary-400">📍</span>
-                                            الموقع: {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
-                                        </p>
+                                            <span className="font-medium">الموقع:</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={address}
+                                            onChange={(e) => setAddress(e.target.value)}
+                                            placeholder="أدخل اسم الموقع..."
+                                            className="w-full bg-slate-800 text-white rounded px-2 py-1 text-sm border border-slate-600 focus:border-primary-500 focus:outline-none"
+                                        />
+                                        <div className="text-[10px] text-slate-500 mt-1 text-left dir-ltr">
+                                            {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+                                        </div>
                                     </div>
                                 )}
 
@@ -197,7 +274,7 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
                                         className="flex-1 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
                                     >
                                         <RotateCcw size={18} />
-                                        إعادة التقاط
+                                        تغيير الصورة
                                     </button>
                                     <button
                                         onClick={handleSave}
@@ -209,39 +286,40 @@ export default function PhotoCaptureModal({ isOpen, onClose, onCapture, currentL
                                 </div>
                             </div>
                         ) : (
-                            /* Camera View */
+                            /* Selection Mode - File Upload Only */
                             <div className="space-y-4">
-                                <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-black aspect-video">
-                                    {isLoading ? (
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="text-white text-sm">جاري تشغيل الكاميرا...</div>
-                                        </div>
-                                    ) : (
-                                        <video
-                                            ref={videoRef}
-                                            autoPlay
-                                            playsInline
-                                            muted
-                                            className="w-full h-full object-cover"
-                                        />
-                                    )}
-                                </div>
+                                {/* Upload from Gallery Button - Primary Option */}
+                                <button
+                                    onClick={triggerFileUpload}
+                                    className="w-full py-12 bg-gradient-to-br from-primary-500/20 to-primary-600/10 border-2 border-dashed border-primary-500/50 rounded-xl hover:border-primary-500 hover:from-primary-500/30 hover:to-primary-600/20 transition-all group flex flex-col items-center justify-center gap-4"
+                                >
+                                    <div className="w-20 h-20 rounded-full bg-primary-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <ImageIcon className="text-primary-400" size={40} />
+                                    </div>
+                                    <div className="text-center">
+                                        <h4 className="text-xl font-bold text-white mb-2">اختيار صورة</h4>
+                                        <p className="text-sm text-slate-400">اضغط لاختيار صورة من جهازك</p>
+                                    </div>
+                                </button>
 
-                                {/* Capture Button */}
-                                {!isLoading && stream && (
-                                    <button
-                                        onClick={capturePhoto}
-                                        className="w-full py-4 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center gap-2 text-lg font-bold"
-                                    >
-                                        <Camera size={24} />
-                                        التقاط الصورة
-                                    </button>
-                                )}
+                                {/* Info Note */}
+                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center">
+                                    <p className="text-blue-400 text-xs">
+                                        💡 يمكنك اختيار صورة موجودة أو التقاط صورة جديدة من تطبيق الكاميرا
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Hidden canvas for photo capture */}
+                    {/* Hidden inputs */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                    />
                     <canvas ref={canvasRef} className="hidden" />
                 </motion.div>
             </motion.div>

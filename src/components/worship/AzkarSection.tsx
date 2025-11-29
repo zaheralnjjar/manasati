@@ -133,7 +133,7 @@ export default function AzkarSection() {
     };
 
     return (
-        <div className="p-4 max-w-4xl mx-auto">
+        <div className="p-0 md:p-4 max-w-4xl mx-auto">
             {/* Active Azkar (Tasbih Mode) */}
             {activeAzkar ? (
                 <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-800 rounded-2xl p-8 mb-8 relative overflow-hidden cursor-pointer select-none shadow-2xl border border-slate-700"

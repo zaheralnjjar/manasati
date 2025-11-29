@@ -40,7 +40,7 @@ export default function Budget() {
 
     // Settings State
     const [showSettings, setShowSettings] = useState(false);
-    const [settingsTab, setSettingsTab] = useState<'salary' | 'categories'>('salary');
+    const [settingsTab, setSettingsTab] = useState<'salary' | 'categories' | 'income'>('salary');
     const [salary, setSalary] = useState('');
     const [salaryDate, setSalaryDate] = useState('1');
 
@@ -236,7 +236,7 @@ export default function Budget() {
     const isSavingsCalc = selectedCategory?.id === 'usd' || selectedCategory?.id === 'gold';
 
     return (
-        <div className="p-4 max-w-4xl mx-auto pb-24">
+        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Wallet className="text-primary-500" />
@@ -262,18 +262,24 @@ export default function Budget() {
             {/* Settings Modal */}
             {showSettings && (
                 <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 mb-6 animate-in fade-in slide-in-from-top-4">
-                    <div className="flex gap-4 mb-6 border-b border-slate-700 pb-2">
+                    <div className="flex gap-4 mb-6 border-b border-slate-700 pb-2 overflow-x-auto">
                         <button
                             onClick={() => setSettingsTab('salary')}
-                            className={`pb-2 ${settingsTab === 'salary' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400'}`}
+                            className={`pb-2 whitespace-nowrap ${settingsTab === 'salary' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400'}`}
                         >
                             إعدادات الراتب
                         </button>
                         <button
                             onClick={() => setSettingsTab('categories')}
-                            className={`pb-2 ${settingsTab === 'categories' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400'}`}
+                            className={`pb-2 whitespace-nowrap ${settingsTab === 'categories' ? 'text-primary-400 border-b-2 border-primary-400' : 'text-slate-400'}`}
                         >
                             إدارة التصنيفات
+                        </button>
+                        <button
+                            onClick={() => setSettingsTab('income')}
+                            className={`pb-2 whitespace-nowrap ${settingsTab === 'income' ? 'text-green-400 border-b-2 border-green-400' : 'text-slate-400'}`}
+                        >
+                            تسجيل دخل
                         </button>
                     </div>
 
@@ -304,7 +310,7 @@ export default function Budget() {
                                 حفظ الإعدادات
                             </button>
                         </div>
-                    ) : (
+                    ) : settingsTab === 'categories' ? (
                         <div className="space-y-4">
                             <div className="flex gap-2">
                                 <input
@@ -347,6 +353,63 @@ export default function Budget() {
                                         )}
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    ) : (
+                        // Income Tab in Settings
+                        <div className="space-y-4">
+                            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
+                                <h4 className="text-green-400 font-bold mb-2 flex items-center gap-2">
+                                    <TrendingUp size={18} />
+                                    تسجيل دخل إضافي
+                                </h4>
+                                <p className="text-xs text-slate-400 mb-4">
+                                    يمكنك هنا تسجيل أي دخل إضافي غير الراتب الشهري.
+                                </p>
+
+                                <div className="space-y-3">
+                                    <select
+                                        value={selectedCategoryId}
+                                        onChange={(e) => setSelectedCategoryId(e.target.value)}
+                                        className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    >
+                                        {categories.filter(c => c.type === 'income').map(cat => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="text"
+                                        value={amount}
+                                        onChange={(e) => setAmount(normalizeNumbers(e.target.value))}
+                                        placeholder="المبلغ"
+                                        className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        dir="ltr"
+                                    />
+
+                                    <input
+                                        type="text"
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        placeholder="وصف الدخل (اختياري)"
+                                        className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    />
+
+                                    <button
+                                        onClick={() => {
+                                            setType('income');
+                                            // Need to wait for state update or pass type directly? 
+                                            // addTransaction uses state 'type'. 
+                                            // Let's modify addTransaction to accept type override or use a separate handler.
+                                            // For now, let's just call a wrapper.
+                                            setTimeout(addTransaction, 0);
+                                        }}
+                                        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2"
+                                    >
+                                        <Plus size={20} />
+                                        <span>إضافة الدخل</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -392,36 +455,27 @@ export default function Budget() {
                 </div>
             </div>
 
-            {/* Add Transaction Form */}
-            <div className="bg-slate-800 rounded-xl p-5 mb-6 border border-slate-700">
-                <div className="flex gap-2 mb-4">
-                    <button
-                        onClick={() => setType('expense')}
-                        className={`flex-1 py-2 rounded-lg transition-colors text-sm font-medium ${type === 'expense'
-                            ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                            : 'bg-slate-700 text-slate-400'
-                            }`}
-                    >
-                        مصروف
-                    </button>
-                    <button
-                        onClick={() => setType('income')}
-                        className={`flex-1 py-2 rounded-lg transition-colors text-sm font-medium ${type === 'income'
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                            : 'bg-slate-700 text-slate-400'
-                            }`}
-                    >
-                        دخل
-                    </button>
-                    <button
-                        onClick={() => setType('savings')}
-                        className={`flex-1 py-2 rounded-lg transition-colors text-sm font-medium ${type === 'savings'
-                            ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50'
-                            : 'bg-slate-700 text-slate-400'
-                            }`}
-                    >
-                        ادخار
-                    </button>
+            {/* Add Transaction Form (Expense Only with Savings Toggle) */}
+            <div className="bg-slate-800 rounded-xl p-5 mb-6 border border-slate-700 shadow-lg">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-white flex items-center gap-2">
+                        <TrendingDown size={20} className="text-red-400" />
+                        تسجيل مصروف جديد
+                    </h3>
+
+                    {/* Savings Toggle */}
+                    <label className="flex items-center gap-2 cursor-pointer bg-slate-700/50 px-3 py-1.5 rounded-lg border border-slate-600 hover:bg-slate-700 transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={type === 'savings'}
+                            onChange={(e) => setType(e.target.checked ? 'savings' : 'expense')}
+                            className="w-4 h-4 rounded border-slate-500 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className={`text-sm font-medium ${type === 'savings' ? 'text-purple-400' : 'text-slate-400'}`}>
+                            تحويل لادخار؟
+                        </span>
+                        {type === 'savings' && <PiggyBank size={16} className="text-purple-400" />}
+                    </label>
                 </div>
 
                 <div className="space-y-3">
@@ -484,16 +538,14 @@ export default function Budget() {
 
                     <button
                         onClick={addTransaction}
-                        className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${type === 'expense' ? 'bg-red-600 hover:bg-red-700' :
-                            type === 'income' ? 'bg-green-600 hover:bg-green-700' :
-                                'bg-purple-600 hover:bg-purple-700'
+                        className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${type === 'savings'
+                            ? 'bg-purple-600 hover:bg-purple-700'
+                            : 'bg-red-600 hover:bg-red-700'
                             } text-white`}
                     >
                         <Plus size={20} />
                         <span>
-                            {type === 'expense' ? 'خصم من الرصيد' :
-                                type === 'income' ? 'إضافة للرصيد' :
-                                    'إضافة للمدخرات'}
+                            {type === 'savings' ? 'إضافة للمدخرات' : 'تسجيل المصروف'}
                         </span>
                     </button>
                 </div>

@@ -230,7 +230,7 @@ export interface Transaction {
 export interface DevelopmentGoal {
     id: string;
     title: string;
-    type: 'book' | 'video' | 'course' | 'habit';
+    type: 'book' | 'video' | 'course' | 'habit' | string;
     frequency: 'once' | 'weekly' | 'monthly' | 'daily';
     status: 'active' | 'completed';
     createdAt: string;

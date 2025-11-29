@@ -66,7 +66,7 @@ export default function Settings() {
     };
 
     return (
-        <div className="p-4 max-w-4xl mx-auto pb-24 space-y-6">
+        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24 space-y-6">
             {/* Header */}
             <div className="bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-700">
                 <h2 className="text-3xl font-bold flex items-center gap-3 text-white">

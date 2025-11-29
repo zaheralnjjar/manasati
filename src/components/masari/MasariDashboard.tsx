@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChangeEvent } from 'react';
 import {
-    Play, Square, MapPin, Clock, Navigation, History, Trash2, Share2,
-    Bookmark, Edit2, ExternalLink, X, Camera, Target, Image as ImageIcon
+    Play, Square, MapPin, Navigation, History, Trash2,
+    Bookmark, X, Camera, Target, Image as ImageIcon
 } from 'lucide-react';
 import { useMasariStore } from '../../store/useMasariStore';
 import PhotoStudio from './PhotoStudio';
+import PhotoCaptureModal from './PhotoCaptureModal';
+import { reverseGeocode } from '../../utils/geocoding';
 import type { LocationPoint, SavedLocation } from '../../store/useMasariStore';
 
 interface MasariDashboardProps {
@@ -32,6 +34,7 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
 
     const [elapsedTime, setElapsedTime] = useState(0);
     const [showSaveModal, setShowSaveModal] = useState(false);
+    const [isPhotoCaptureOpen, setIsPhotoCaptureOpen] = useState(false);
     const [editingLocation, setEditingLocation] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'all' | 'parking' | 'place' | 'photo' | 'studio'>('all');
     const [locationForm, setLocationForm] = useState<{
@@ -199,18 +202,27 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
         }
     };
 
-    const handlePhotoCapture = async (e: ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const handlePhotoCapture = async (photoData: string, title: string) => {
+        if (!currentLocation) return;
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            setLocationForm({
-                ...locationForm,
-                photo: reader.result as string
-            });
+        const streetAddress = await reverseGeocode(currentLocation.lat, currentLocation.lng);
+        const locationName = streetAddress || title || 'صورة موقع';
+
+        const newPhotoLocation = {
+            name: locationName,
+            lat: currentLocation.lat,
+            lng: currentLocation.lng,
+            category: 'photo' as const,
+            icon: 'pin' as const,
+            photo: photoData,
+            photoTitle: title,
+            streetAddress: streetAddress || undefined,
+            savedAt: Date.now(),
+            notes: 'تم التقاط الصورة من مساري'
         };
-        reader.readAsDataURL(file);
+
+        useMasariStore.getState().addSavedLocation(newPhotoLocation);
+        setIsPhotoCaptureOpen(false);
     };
 
     const iconOptions = [
@@ -226,18 +238,13 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
         ? savedLocations
         : savedLocations.filter(loc => loc.category === activeTab);
 
-    // Count locations by category
-    const parkingCount = savedLocations.filter(loc => loc.category === 'parking').length;
-    const placeCount = savedLocations.filter(loc => loc.category === 'place').length;
-    const photoCount = savedLocations.filter(loc => loc.category === 'photo').length;
-
     // Unified view state
     const [viewMode, setViewMode] = useState<'locations' | 'trips'>('locations');
 
     return (
         <div className="flex flex-col w-full h-full bg-slate-900">
-            {/* 1. Compact Toolbar (4 Icons) - Full Width, No Rounding */}
-            <div className="bg-slate-800 p-0.5 grid grid-cols-4 gap-0.5 flex-shrink-0 border-b border-slate-700">
+            {/* 1. Compact Toolbar (5 Icons) - Full Width, No Rounding */}
+            <div className="bg-slate-800 p-0.5 grid grid-cols-5 gap-0.5 flex-shrink-0 border-b border-slate-700">
                 {/* Track Button */}
                 <button
                     onClick={isTracking ? stopTracking : startTracking}
@@ -276,6 +283,17 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                 >
                     <Bookmark size={20} className="mb-0.5" />
                     <span className="text-[10px] font-bold">حفظ</span>
+                </button>
+
+                {/* Photo Capture Button */}
+                <button
+                    onClick={() => setIsPhotoCaptureOpen(true)}
+                    disabled={!currentLocation}
+                    className="flex flex-col items-center justify-center py-2 rounded-sm bg-slate-700/30 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition-all"
+                    title="التقاط صورة"
+                >
+                    <Camera size={20} className="mb-0.5" />
+                    <span className="text-[10px] font-bold">صورة</span>
                 </button>
 
                 {/* Locate Me Button */}
@@ -322,11 +340,11 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                     {/* Filter Tabs (Only for Locations) */}
                     {viewMode === 'locations' && (
                         <div className="flex gap-1">
-                            <button onClick={() => setActiveTab('all')} className={`px-2 py-1 rounded text-xs ${activeTab === 'all' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>الكل</button>
-                            <button onClick={() => setActiveTab('parking')} className={`px-2 py-1 rounded text-xs ${activeTab === 'parking' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>🚗</button>
-                            <button onClick={() => setActiveTab('place')} className={`px-2 py-1 rounded text-xs ${activeTab === 'place' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>📍</button>
-                            <button onClick={() => setActiveTab('studio')} className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${activeTab === 'studio' ? 'bg-primary-500 text-white' : 'bg-slate-700 text-slate-400'}`}>
-                                <ImageIcon size={12} />
+                            <button onClick={() => setActiveTab('all')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>الكل</button>
+                            <button onClick={() => setActiveTab('parking')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'parking' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>🚗</button>
+                            <button onClick={() => setActiveTab('place')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'place' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>📍</button>
+                            <button onClick={() => setActiveTab('studio')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 transition-all ${activeTab === 'studio' ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                                <ImageIcon size={16} />
                                 استوديو
                             </button>
                         </div>
@@ -514,7 +532,16 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                                             type="file"
                                             accept="image/*"
                                             capture="environment"
-                                            onChange={handlePhotoCapture}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        handlePhotoCapture(reader.result as string, 'صورة من المعرض');
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
                                             className="hidden"
                                         />
                                     </label>
@@ -559,6 +586,33 @@ export default function MasariDashboard({ section = 'all' }: MasariDashboardProp
                     </div>
                     , document.body)
             }
+
+            {/* Photo Capture Modal */}
+            <PhotoCaptureModal
+                isOpen={isPhotoCaptureOpen}
+                onClose={() => setIsPhotoCaptureOpen(false)}
+                onCapture={handlePhotoCapture}
+                currentLocation={currentLocation}
+                onRequestLocation={() => {
+                    // Update location when modal opens
+                    if ('geolocation' in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                updateLocation({
+                                    id: crypto.randomUUID(),
+                                    lat: position.coords.latitude,
+                                    lng: position.coords.longitude,
+                                    timestamp: Date.now(),
+                                    speed: position.coords.speed || 0,
+                                    heading: position.coords.heading || 0
+                                });
+                            },
+                            (error) => console.error('Error getting location:', error),
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                        );
+                    }
+                }}
+            />
         </div >
     );
 }

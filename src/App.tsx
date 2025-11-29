@@ -12,6 +12,7 @@ import ConfirmDialogProvider from './components/ConfirmDialogProvider';
 import VoiceAssistant from './components/voice/VoiceAssistant';
 
 import { useAppStore } from './store/useAppStore';
+import { useMasariStore } from './store/useMasariStore';
 import { storage } from './utils/storage';
 import { autoBackup } from './utils/autoBackup';
 import './App.css';
@@ -42,6 +43,37 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Global Location Tracking
+  const { updateLocation } = useMasariStore();
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        updateLocation({
+          id: crypto.randomUUID(),
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          timestamp: position.timestamp,
+          speed: position.coords.speed || 0,
+          heading: position.coords.heading || 0,
+          accuracy: position.coords.accuracy
+        });
+      },
+      (error) => {
+        console.error('Error watching position:', error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 1000
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
 
 

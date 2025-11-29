@@ -16,10 +16,11 @@ const DEFAULT_SHOPPING_CATEGORIES: ShoppingCategoryExtended[] = [
 export default function Shopping() {
     const [items, setItems] = useState<ShoppingItem[]>([]);
     const [categories, setCategories] = useState<ShoppingCategoryExtended[]>([]);
-    const [activeCategory, setActiveCategory] = useState<string>('general');
+    const [activeCategory, setActiveCategory] = useState<string>('all');
     const [newItemName, setNewItemName] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
+    const [selectedAddCategory, setSelectedAddCategory] = useState<string | null>(null);
 
     const loadItems = () => {
         const savedItems = storage.get<ShoppingItem[]>('shoppingList') || [];
@@ -52,15 +53,30 @@ export default function Shopping() {
 
     const addItem = () => {
         if (!newItemName.trim()) return;
+
+        // Determine category: 
+        // 1. Manually selected category
+        // 2. Current active category (if not 'all')
+        // 3. Default 'general'
+        let targetCategory = 'general';
+
+        if (selectedAddCategory) {
+            targetCategory = selectedAddCategory;
+        } else if (activeCategory !== 'all') {
+            targetCategory = activeCategory;
+        }
+
         const newItem: ShoppingItem = {
             id: crypto.randomUUID(),
             name: newItemName.trim(),
-            category: activeCategory === 'all' ? 'general' : activeCategory,
+            category: targetCategory,
             addedDate: new Date().toISOString(),
             purchased: false
         };
         setItems([...items, newItem]);
         setNewItemName('');
+        // Keep the selected category for rapid entry, or reset? 
+        // Let's keep it to allow adding multiple items to same category easily.
     };
 
     const toggleItem = (id: string) => {
@@ -100,7 +116,7 @@ export default function Shopping() {
     );
 
     return (
-        <div className="p-4 max-w-4xl mx-auto pb-24">
+        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <ShoppingCart className="text-primary-500" />
@@ -145,47 +161,46 @@ export default function Shopping() {
                 </div>
             )}
 
-            {/* Categories Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
-                <button
-                    onClick={() => setActiveCategory('all')}
-                    className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCategory === 'all'
-                        ? 'bg-primary-500 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                        }`}
-                >
-                    الكل
-                </button>
-                {categories.map(cat => (
-                    <button
-                        key={cat.id}
-                        onClick={() => setActiveCategory(cat.id)}
-                        className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeCategory === cat.id
-                            ? 'bg-primary-500 text-white'
-                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                            }`}
-                    >
-                        {cat.name}
-                    </button>
-                ))}
-            </div>
+
 
             {/* Add Item Input */}
-            <div className="flex gap-2 mb-6">
-                <input
-                    type="text"
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addItem()}
-                    placeholder={`إضافة إلى ${activeCategory === 'all' ? 'عام' : categories.find(c => c.id === activeCategory)?.name}...`}
-                    className="flex-1 bg-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <button
-                    onClick={addItem}
-                    className="bg-primary-500 hover:bg-primary-600 text-white px-6 rounded-xl transition-colors"
-                >
-                    <Plus size={24} />
-                </button>
+            <div className="flex flex-col gap-3 mb-6 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg">
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newItemName}
+                        onChange={(e) => setNewItemName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                        placeholder={selectedAddCategory
+                            ? `إضافة إلى ${categories.find(c => c.id === selectedAddCategory)?.name}...`
+                            : activeCategory !== 'all'
+                                ? `إضافة إلى ${categories.find(c => c.id === activeCategory)?.name}...`
+                                : "ماذا تريد أن تشتري؟ (عام)"}
+                        className="flex-1 bg-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <button
+                        onClick={addItem}
+                        className="bg-primary-500 hover:bg-primary-600 text-white px-4 rounded-lg transition-colors"
+                    >
+                        <Plus size={24} />
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    <span className="text-xs text-slate-400 whitespace-nowrap ml-2">إضافة إلى:</span>
+                    {categories.map(cat => (
+                        <button
+                            key={cat.id}
+                            onClick={() => setSelectedAddCategory(cat.id === selectedAddCategory ? null : cat.id)}
+                            className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${cat.id === selectedAddCategory
+                                ? 'bg-primary-500 text-white border-primary-500'
+                                : 'border-slate-600 text-slate-400 hover:border-slate-500'
+                                }`}
+                        >
+                            {cat.name}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Items List */}

@@ -85,7 +85,7 @@ export default function Development() {
     };
 
     return (
-        <div className="p-4 max-w-4xl mx-auto pb-24">
+        <div className="p-0 md:p-4 max-w-4xl mx-auto pb-24">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <GraduationCap className="text-primary-500" />

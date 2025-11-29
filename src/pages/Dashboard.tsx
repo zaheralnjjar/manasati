@@ -29,7 +29,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const { getBudgetSummary, initialize: initFinance } = useFinanceStore();
     const { readingGoals, initialize: initSpiritual } = useSpiritualStore();
     const { shoppingList, initialize: initLifestyle } = useLifestyleStore();
-    const { savedLocations, currentLocation } = useMasariStore();
+    const { savedLocations, currentLocation, updateLocation } = useMasariStore();
 
     // Synchronized Prayer Times
     const { nextPrayer, currentPrayer, timeRemaining, timeSince, prayers } = usePrayerSync();
@@ -41,6 +41,32 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         initSpiritual();
         initLifestyle();
     }, []);
+
+    // Auto-detect location once when Dashboard loads
+    useEffect(() => {
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    updateLocation({
+                        id: crypto.randomUUID(),
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        timestamp: Date.now(),
+                        speed: position.coords.speed || 0,
+                        heading: position.coords.heading || 0
+                    });
+                },
+                (error) => {
+                    console.error('Error getting location:', error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+    }, []); // Run once on mount
 
     // Derived State
     const budget = getBudgetSummary();
@@ -90,12 +116,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         // Convert PrayerTimeResult[] to PrayerTime object for ICS generation
         const todayPrayerTime: PrayerTime = {
             date: new Date().toISOString().split('T')[0],
-            fajr: prayers.find(p => p.name === 'Fajr')?.time || '',
-            sunrise: prayers.find(p => p.name === 'Sunrise')?.time || '',
-            dhuhr: prayers.find(p => p.name === 'Dhuhr')?.time || '',
-            asr: prayers.find(p => p.name === 'Asr')?.time || '',
-            maghrib: prayers.find(p => p.name === 'Maghrib')?.time || '',
-            isha: prayers.find(p => p.name === 'Isha')?.time || '',
+            fajr: prayers.find(p => p.name === 'fajr')?.time || '',
+            sunrise: prayers.find(p => p.name === 'sunrise')?.time || '',
+            dhuhr: prayers.find(p => p.name === 'dhuhr')?.time || '',
+            asr: prayers.find(p => p.name === 'asr')?.time || '',
+            maghrib: prayers.find(p => p.name === 'maghrib')?.time || '',
+            isha: prayers.find(p => p.name === 'isha')?.time || '',
         };
 
         const icsContent = generateICS(
@@ -118,13 +144,42 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         }
     };
 
+    // Address State
+    const [currentAddress, setCurrentAddress] = useState<string>('');
+
+    // Fetch address when location changes
+    useEffect(() => {
+        const fetchAddress = async () => {
+            if (!currentLocation) return;
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.lat}&lon=${currentLocation.lng}&accept-language=ar`);
+                const data = await response.json();
+                if (data.address) {
+                    const { road, house_number, suburb, neighbourhood, city } = data.address;
+                    // Construct address: Street + Number (if available) or Suburb/City
+                    const parts = [];
+                    if (road) parts.push(road);
+                    if (house_number) parts.push(house_number);
+                    if (!road && (suburb || neighbourhood)) parts.push(suburb || neighbourhood);
+                    if (!road && !suburb && !neighbourhood && city) parts.push(city);
+
+                    setCurrentAddress(parts.join(' ') || 'موقع غير معروف');
+                }
+            } catch (error) {
+                console.error('Error fetching address:', error);
+            }
+        };
+
+        fetchAddress();
+    }, [currentLocation]);
+
     return (
         <div className="pb-24 min-h-screen bg-slate-900 text-slate-100 font-cairo">
             <DashboardTicker />
 
-            <div className="p-[2px] md:p-6 max-w-7xl mx-auto space-y-1 md:space-y-6">
+            <div className="p-0 md:p-6 max-w-7xl mx-auto space-y-1 md:space-y-6">
                 {/* Header - Split: Right (Greeting+Date) | Left (Location+Settings) */}
-                <div className="flex justify-between items-start gap-2 mb-1 md:mb-6 px-1">
+                <div className="flex justify-between items-start gap-2 mb-1 md:mb-6 px-2 pt-2">
                     {/* Right Side: Greeting + Date */}
                     <div className="flex-1">
                         <h1 className="text-lg md:text-3xl font-bold text-white mb-0">
@@ -148,7 +203,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     {/* Left Side: Location + Settings Icon */}
                     <div className="flex flex-col items-end gap-1">
                         <div className="text-xs md:text-sm text-slate-400 flex items-center gap-1">
-                            <span>{currentLocation ? `${currentLocation.lat.toFixed(2)}, ${currentLocation.lng.toFixed(2)}` : 'موقعي'}</span>
+                            <span className="truncate max-w-[150px] md:max-w-xs" dir="rtl">
+                                {currentAddress || (currentLocation ? `${currentLocation.lat.toFixed(2)}, ${currentLocation.lng.toFixed(2)}` : 'جاري تحديد الموقع...')}
+                            </span>
                             <MapPin size={14} className="text-primary-400" />
                         </div>
                         <button

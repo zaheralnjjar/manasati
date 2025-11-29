@@ -214,6 +214,25 @@ export default function DashboardMapWidget() {
                 onClose={() => setIsPhotoCaptureOpen(false)}
                 onCapture={handlePhotoCapture}
                 currentLocation={currentLocation}
+                onRequestLocation={() => {
+                    // Update location when modal opens
+                    if ('geolocation' in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                updateLocation({
+                                    id: crypto.randomUUID(),
+                                    lat: position.coords.latitude,
+                                    lng: position.coords.longitude,
+                                    timestamp: Date.now(),
+                                    speed: position.coords.speed || 0,
+                                    heading: position.coords.heading || 0
+                                });
+                            },
+                            (error) => console.error('Error getting location:', error),
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                        );
+                    }
+                }}
             />
         </div>
     );

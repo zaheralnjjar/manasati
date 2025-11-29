@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import MasariMap from '../components/masari/MasariMap';
 import MasariDashboard from '../components/masari/MasariDashboard';
 import { useMasariStore } from '../store/useMasariStore';

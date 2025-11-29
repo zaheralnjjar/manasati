@@ -1,76 +1,94 @@
 import { useState, useEffect } from 'react';
-
+import { useSpiritualStore } from '../store/useSpiritualStore';
 import {
-    calculatePrayerTimes,
     getNextPrayer,
     getCurrentPrayer,
-    getTimeUntilPrayer,
-    getTimeSincePrayer,
-    type PrayerTimeResult
-} from '../utils/prayerTimes';
+    getTimeUntil,
+    getTimeSince,
+    prayerNames
+} from '../utils/prayerHelpers';
+import type { PrayerName } from '../types';
+
+export interface DashboardPrayer {
+    name: PrayerName;
+    arabicName: string;
+    time: string;
+}
 
 export const usePrayerSync = () => {
-    const [prayers, setPrayers] = useState<PrayerTimeResult[]>([]);
-    const [nextPrayer, setNextPrayer] = useState<PrayerTimeResult | null>(null);
-    const [currentPrayer, setCurrentPrayer] = useState<PrayerTimeResult | null>(null);
+    const { prayerTimes } = useSpiritualStore();
+    const [prayers, setPrayers] = useState<DashboardPrayer[]>([]);
+    const [nextPrayer, setNextPrayer] = useState<DashboardPrayer | null>(null);
+    const [currentPrayer, setCurrentPrayer] = useState<DashboardPrayer | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [timeSince, setTimeSince] = useState<string>('');
 
-    // Default location (Riyadh) if not available
-    const [location, setLocation] = useState({ lat: 24.7136, lng: 46.6753 });
-
     useEffect(() => {
-        // Try to get user location
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setLocation({
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
+        const updatePrayerState = () => {
+            const today = new Date().toISOString().split('T')[0];
+            const todayPrayers = prayerTimes.find(pt => pt.date === today);
+
+            if (todayPrayers) {
+                // Map to Dashboard format
+                const prayersList: DashboardPrayer[] = [
+                    { name: 'fajr', arabicName: prayerNames.fajr, time: todayPrayers.fajr },
+                    { name: 'sunrise', arabicName: prayerNames.sunrise, time: todayPrayers.sunrise },
+                    { name: 'dhuhr', arabicName: prayerNames.dhuhr, time: todayPrayers.dhuhr },
+                    { name: 'asr', arabicName: prayerNames.asr, time: todayPrayers.asr },
+                    { name: 'maghrib', arabicName: prayerNames.maghrib, time: todayPrayers.maghrib },
+                    { name: 'isha', arabicName: prayerNames.isha, time: todayPrayers.isha },
+                ];
+                setPrayers(prayersList);
+
+                // Next Prayer
+                const next = getNextPrayer(prayerTimes);
+                if (next) {
+                    setNextPrayer({
+                        name: next.prayer,
+                        arabicName: prayerNames[next.prayer],
+                        time: next.time
                     });
-                },
-                (error) => {
-                    console.log('Using default location:', error);
+                    setTimeRemaining(getTimeUntil(next.time));
+                } else {
+                    setNextPrayer(null);
+                    setTimeRemaining('');
                 }
-            );
-        }
-    }, []);
 
-    useEffect(() => {
-        const updatePrayerTimes = () => {
-            const todayPrayers = calculatePrayerTimes(location.lat, location.lng);
-            setPrayers(todayPrayers);
-
-            const next = getNextPrayer(todayPrayers);
-            setNextPrayer(next);
-
-            const current = getCurrentPrayer(todayPrayers);
-            setCurrentPrayer(current);
-
-            if (next) {
-                setTimeRemaining(getTimeUntilPrayer(next.time));
-            }
-
-            if (current) {
-                setTimeSince(getTimeSincePrayer(current.time));
+                // Current Prayer
+                const current = getCurrentPrayer(prayerTimes);
+                if (current) {
+                    setCurrentPrayer({
+                        name: current.prayer,
+                        arabicName: prayerNames[current.prayer],
+                        time: current.time
+                    });
+                    setTimeSince(getTimeSince(current.time));
+                } else {
+                    setCurrentPrayer(null);
+                    setTimeSince('');
+                }
+            } else {
+                // Fallback or empty state if no data for today
+                setPrayers([]);
+                setNextPrayer(null);
+                setCurrentPrayer(null);
             }
         };
 
         // Initial update
-        updatePrayerTimes();
+        updatePrayerState();
 
-        // Update every minute
-        const interval = setInterval(updatePrayerTimes, 60000);
+        // Update every second for accurate countdown
+        const interval = setInterval(updatePrayerState, 1000);
 
         return () => clearInterval(interval);
-    }, [location.lat, location.lng]);
+    }, [prayerTimes]);
 
     return {
         prayers,
         nextPrayer,
         currentPrayer,
         timeRemaining,
-        timeSince,
-        location
+        timeSince
     };
 };

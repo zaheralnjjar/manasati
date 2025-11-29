@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Clock, Calendar, Globe, Edit2, Trash2, Settings } from 'lucide-react';
+import { Download, Clock, Calendar, Globe, Edit2, Trash2, Settings, Share2 } from 'lucide-react';
 import type { PrayerTime, PrayerSettings } from '../../types';
 import { storage } from '../../utils/storage';
 import { getNextPrayer, getCurrentPrayer, getTimeUntil, getTimeSince, formatTime, prayerNames } from '../../utils/prayerHelpers';
@@ -190,12 +190,40 @@ export default function PrayerSection() {
         }
     };
 
+    const handleShareDay = async (pt: PrayerTime) => {
+        const text = `🕌 أوقات الصلاة ليوم ${new Date(pt.date).toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}:\n\n` +
+            `الفجر: ${pt.fajr}\n` +
+            `الشروق: ${pt.sunrise}\n` +
+            `الظهر: ${pt.dhuhr}\n` +
+            `العصر: ${pt.asr}\n` +
+            `المغرب: ${pt.maghrib}\n` +
+            `العشاء: ${pt.isha}\n\n` +
+            `تمت المشاركة عبر تطبيق منصتي`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `أوقات الصلاة - ${pt.date}`,
+                    text: text,
+                });
+            } catch (err) {
+                if ((err as Error).name !== 'AbortError') {
+                    await navigator.clipboard.writeText(text);
+                    alert('تم نسخ الأوقات إلى الحافظة');
+                }
+            }
+        } else {
+            await navigator.clipboard.writeText(text);
+            alert('تم نسخ الأوقات إلى الحافظة');
+        }
+    };
+
     return (
-        <div className="p-2 md:p-4 max-w-4xl mx-auto pb-24">
-            <h1 className="text-xl md:text-2xl font-bold mb-4 text-center">أوقات الصلاة</h1>
+        <div className="p-0 md:p-4 max-w-4xl mx-auto space-y-2">
+            <h1 className="text-xl md:text-2xl font-bold mb-2 text-center">أوقات الصلاة</h1>
 
             {/* Top Counters (Single Row) */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-2">
                 {/* Next Prayer */}
                 <div className="bg-gradient-to-br from-primary-500/20 to-primary-600/20 rounded-xl p-3 border border-primary-500/30 flex flex-col items-center justify-center">
                     <div className="flex items-center gap-1.5 mb-1">
@@ -218,7 +246,7 @@ export default function PrayerSection() {
             </div>
 
             {/* Tabs */}
-            <div className="flex bg-slate-800 rounded-xl p-1 mb-4 border border-slate-700">
+            <div className="flex bg-slate-800 rounded-xl p-1 mb-2 border border-slate-700">
                 <button
                     onClick={() => setActiveTab('prayers')}
                     className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'prayers' ? 'bg-primary-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
@@ -237,10 +265,10 @@ export default function PrayerSection() {
 
             {/* Content Area */}
             {activeTab === 'prayers' ? (
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {/* Calculation Method & Fetch Controls (Collapsible or Compact) */}
                     <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-2">
                                 <Settings size={16} className="text-slate-400" />
                                 <select
@@ -277,16 +305,10 @@ export default function PrayerSection() {
                     {/* Prayer Times Table */}
                     {prayerTimes.length > 0 ? (
                         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                            <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-750">
+                            <div className="flex items-center justify-between p-2 border-b border-slate-700 bg-slate-750">
                                 <h3 className="text-sm font-bold text-white">الجدول ({prayerTimes.length} يوم)</h3>
                                 <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setShowAddForm(!showAddForm)}
-                                        className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors"
-                                        title="إضافة يدوي"
-                                    >
-                                        <Plus size={16} />
-                                    </button>
+
                                     <button
                                         onClick={() => setShowExportModal(true)}
                                         className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors"
@@ -299,7 +321,7 @@ export default function PrayerSection() {
 
                             {/* Add Form (Collapsible) */}
                             {showAddForm && (
-                                <div className="p-3 border-b border-slate-700 bg-slate-700/30">
+                                <div className="p-2 border-b border-slate-700 bg-slate-700/30">
                                     <div className="grid grid-cols-2 gap-2 mb-2">
                                         <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="bg-slate-700 rounded px-2 py-1 text-xs text-white border border-slate-600" />
                                         <input type="time" value={formData.fajr} onChange={e => setFormData({ ...formData, fajr: e.target.value })} className="bg-slate-700 rounded px-2 py-1 text-xs text-white border border-slate-600" placeholder="الفجر" />
@@ -316,14 +338,14 @@ export default function PrayerSection() {
                                 <table className="w-full text-xs md:text-sm">
                                     <thead>
                                         <tr className="bg-slate-700/50 text-slate-300">
-                                            <th className="p-2 text-right font-medium">اليوم</th>
-                                            <th className="p-2 text-center font-medium">فجر</th>
-                                            <th className="p-2 text-center font-medium">شروق</th>
-                                            <th className="p-2 text-center font-medium">ظهر</th>
-                                            <th className="p-2 text-center font-medium">عصر</th>
-                                            <th className="p-2 text-center font-medium">مغرب</th>
-                                            <th className="p-2 text-center font-medium">عشاء</th>
-                                            <th className="p-2 text-center font-medium w-16"></th>
+                                            <th className="p-1 text-right font-medium">اليوم</th>
+                                            <th className="p-1 text-center font-medium">فجر</th>
+                                            <th className="p-1 text-center font-medium">شروق</th>
+                                            <th className="p-1 text-center font-medium">ظهر</th>
+                                            <th className="p-1 text-center font-medium">عصر</th>
+                                            <th className="p-1 text-center font-medium">مغرب</th>
+                                            <th className="p-1 text-center font-medium">عشاء</th>
+                                            <th className="p-1 text-center font-medium w-16"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700/50">
@@ -332,7 +354,7 @@ export default function PrayerSection() {
                                             const isTodayRow = pt.date === getToday();
                                             return (
                                                 <tr key={pt.date} className={`hover:bg-slate-700/30 transition-colors ${isTodayRow ? 'bg-primary-900/10' : ''}`}>
-                                                    <td className="p-2 whitespace-nowrap">
+                                                    <td className="p-1 whitespace-nowrap">
                                                         <div className={`font-bold ${isTodayRow ? 'text-primary-400' : 'text-slate-200'}`}>
                                                             {new Date(pt.date).getDate()}
                                                         </div>
@@ -341,14 +363,15 @@ export default function PrayerSection() {
                                                         </div>
                                                         {holiday && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-0.5" title={holiday.name}></div>}
                                                     </td>
-                                                    <td className="p-2 text-center font-mono text-slate-300">{pt.fajr}</td>
-                                                    <td className="p-2 text-center font-mono text-slate-500 text-[10px]">{pt.sunrise}</td>
-                                                    <td className="p-2 text-center font-mono text-slate-300">{pt.dhuhr}</td>
-                                                    <td className="p-2 text-center font-mono text-slate-300">{pt.asr}</td>
-                                                    <td className="p-2 text-center font-mono text-slate-300">{pt.maghrib}</td>
-                                                    <td className="p-2 text-center font-mono text-slate-300">{pt.isha}</td>
-                                                    <td className="p-2 text-center">
+                                                    <td className="p-1 text-center font-mono text-slate-300">{pt.fajr}</td>
+                                                    <td className="p-1 text-center font-mono text-slate-500 text-[10px]">{pt.sunrise}</td>
+                                                    <td className="p-1 text-center font-mono text-slate-300">{pt.dhuhr}</td>
+                                                    <td className="p-1 text-center font-mono text-slate-300">{pt.asr}</td>
+                                                    <td className="p-1 text-center font-mono text-slate-300">{pt.maghrib}</td>
+                                                    <td className="p-1 text-center font-mono text-slate-300">{pt.isha}</td>
+                                                    <td className="p-1 text-center">
                                                         <div className="flex items-center justify-end gap-1">
+                                                            <button onClick={() => handleShareDay(pt)} className="text-emerald-400 p-1 hover:bg-slate-700 rounded" title="مشاركة"><Share2 size={12} /></button>
                                                             <button onClick={() => handleEditPrayerTime(pt)} className="text-blue-400 p-1 hover:bg-slate-700 rounded"><Edit2 size={12} /></button>
                                                             <button onClick={() => handleDeletePrayerTime(pt.date)} className="text-red-400 p-1 hover:bg-slate-700 rounded"><Trash2 size={12} /></button>
                                                         </div>
@@ -399,12 +422,118 @@ export default function PrayerSection() {
                     <div className="bg-slate-800 rounded-lg p-6 max-w-sm w-full border border-slate-700 shadow-xl">
                         <h3 className="text-lg font-bold mb-4 text-center">تصدير التقويم</h3>
                         {/* Simplified Export Options for Mobile */}
-                        <div className="space-y-3 mb-6">
-                            <button onClick={() => { setSelectAllDates(true); handleExport(); }} className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                        <div className="space-y-4 mb-6 max-h-[60vh] overflow-y-auto">
+                            {/* Notification Settings */}
+                            <div className="space-y-2">
+                                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportSettings.notifyAtAdhan}
+                                        onChange={(e) => setExportSettings({ ...exportSettings, notifyAtAdhan: e.target.checked })}
+                                        className="rounded border-slate-600 bg-slate-700 text-primary-600"
+                                    />
+                                    تنبيه عند وقت الأذان
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={exportSettings.notifyBeforeAdhan}
+                                        onChange={(e) => setExportSettings({ ...exportSettings, notifyBeforeAdhan: e.target.checked })}
+                                        className="rounded border-slate-600 bg-slate-700 text-primary-600"
+                                    />
+                                    تنبيه قبل الأذان
+                                </label>
+                                {exportSettings.notifyBeforeAdhan && (
+                                    <div className="mr-6">
+                                        <select
+                                            value={exportSettings.minutesBeforeAdhan}
+                                            onChange={(e) => setExportSettings({ ...exportSettings, minutesBeforeAdhan: Number(e.target.value) })}
+                                            className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white"
+                                        >
+                                            <option value={5}>5 دقائق</option>
+                                            <option value={10}>10 دقائق</option>
+                                            <option value={15}>15 دقيقة</option>
+                                            <option value={20}>20 دقيقة</option>
+                                            <option value={30}>30 دقيقة</option>
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border-t border-slate-700 my-2"></div>
+
+                            {/* Prayers Selection */}
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-400 mb-2">الصلوات للتصدير</h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].map((p) => (
+                                        <label key={p} className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={exportSettings.selectedPrayers.includes(p as any)}
+                                                onChange={(e) => {
+                                                    const current = exportSettings.selectedPrayers;
+                                                    const updated = e.target.checked
+                                                        ? [...current, p as any]
+                                                        : current.filter(x => x !== p);
+                                                    setExportSettings({ ...exportSettings, selectedPrayers: updated });
+                                                }}
+                                                className="rounded border-slate-600 bg-slate-700 text-primary-600"
+                                            />
+                                            {prayerNames[p as keyof typeof prayerNames]}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-700 my-2"></div>
+
+                            {/* Date Selection */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-xs font-bold text-slate-400">الأيام ({selectAllDates ? 'الكل' : selectedDates.length})</h4>
+                                    <button
+                                        onClick={() => {
+                                            if (selectAllDates) {
+                                                setSelectAllDates(false);
+                                                setSelectedDates([]);
+                                            } else {
+                                                setSelectAllDates(true);
+                                            }
+                                        }}
+                                        className="text-xs text-primary-400 hover:text-primary-300"
+                                    >
+                                        {selectAllDates ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                                    </button>
+                                </div>
+                                {!selectAllDates && (
+                                    <div className="max-h-32 overflow-y-auto space-y-1 bg-slate-900/50 p-2 rounded border border-slate-700">
+                                        {prayerTimes.map(pt => (
+                                            <label key={pt.date} className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer hover:bg-slate-800/50 p-1 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedDates.includes(pt.date)}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedDates([...selectedDates, pt.date]);
+                                                        } else {
+                                                            setSelectedDates(selectedDates.filter(d => d !== pt.date));
+                                                        }
+                                                    }}
+                                                    className="rounded border-slate-600 bg-slate-700 text-primary-600"
+                                                />
+                                                <span className="w-20">{pt.date}</span>
+                                                <span className="text-slate-500">{new Date(pt.date).toLocaleDateString('ar-SA', { weekday: 'short' })}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button onClick={handleExport} className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
                                 <Download size={18} />
-                                تصدير الكل (ICS)
+                                تصدير ملف التقويم (ICS)
                             </button>
-                            <p className="text-xs text-slate-400 text-center">سيتم تصدير جميع أوقات الصلاة في الجدول</p>
                         </div>
                         <button onClick={() => setShowExportModal(false)} className="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded transition-colors">إغلاق</button>
                     </div>
